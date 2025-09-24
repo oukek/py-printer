@@ -12,8 +12,17 @@ import json
 import os
 import base64
 import tempfile
-from typing import List, Dict, Any, Union, Optional
-import win32con  # 添加 win32con 模块导入
+from typing import List, Dict, Any, Optional
+
+# 条件导入Windows相关模块
+if platform.system() == 'Windows':
+    try:
+        import win32con
+    except ImportError:
+        win32con = None
+        print("Windows系统需要安装pywin32库: pip install pywin32")
+else:
+    win32con = None
 
 # 导入图像和PDF处理库
 from PIL import Image
@@ -185,8 +194,9 @@ class PrinterInfo:
             hDC.StartPage()
             
             # 获取打印机分辨率
-            dpi_x = hDC.GetDeviceCaps(win32con.LOGPIXELSX)
-            dpi_y = hDC.GetDeviceCaps(win32con.LOGPIXELSY)
+            # 使用常量值代替win32con，避免跨平台问题
+            dpi_x = hDC.GetDeviceCaps(88)  # LOGPIXELSX = 88
+            dpi_y = hDC.GetDeviceCaps(90)  # LOGPIXELSY = 90
             
             # 计算打印尺寸（英寸）
             width_inch = image.width / dpi_x
@@ -327,9 +337,10 @@ class PrinterInfo:
             # 尝试不同的方式获取纸张尺寸
             try:
                 # 方法1：使用打印机名称和空端口名
-                paper_sizes = win32print.DeviceCapabilities(printer_name, "", win32con.DC_PAPERS, None)
-                paper_names = win32print.DeviceCapabilities(printer_name, "", win32con.DC_PAPERNAMES, None)
-                paper_dimensions = win32print.DeviceCapabilities(printer_name, "", win32con.DC_PAPERSIZE, None)
+                # 使用常量值代替win32con，避免跨平台问题
+                paper_sizes = win32print.DeviceCapabilities(printer_name, "", 24, None)  # DC_PAPERS = 24
+                paper_names = win32print.DeviceCapabilities(printer_name, "", 16, None)  # DC_PAPERNAMES = 16
+                paper_dimensions = win32print.DeviceCapabilities(printer_name, "", 3, None)  # DC_PAPERSIZE = 3
                 
                 # 如果返回0，尝试使用默认纸张尺寸
                 if not paper_sizes or paper_sizes == 0:
