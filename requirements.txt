@@ -1,0 +1,9 @@
+# 打印机信息获取工具依赖
+
+# Windows系统需要的依赖
+pywin32>=306; sys_platform == "win32"
+
+# 图像和PDF处理依赖
+Pillow>=9.0.0
+pdf2image>=1.16.0
+

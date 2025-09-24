@@ -1,0 +1,17 @@
+[
+  {
+    "name": "导出为WPS PDF",
+    "status": "就绪",
+    "paper_count": 116
+  },
+  {
+    "name": "Microsoft Print to PDF",
+    "status": "就绪",
+    "paper_count": 84
+  },
+  {
+    "name": "HPRT N41",
+    "status": "就绪",
+    "paper_count": 85
+  }
+]
