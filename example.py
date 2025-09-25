@@ -188,7 +188,7 @@ def main():
         example_filter_printers()
         example_paper_size_analysis()
         example_find_printer_by_name()
-        example_print_pdf()  # 添加PDF打印示例
+        # example_print_pdf()  # 添加PDF打印示例
         
         print("所有示例运行完成!")
         

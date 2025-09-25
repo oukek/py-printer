@@ -55,13 +55,14 @@ class PrinterInfo:
         else:
             raise NotImplementedError(f"不支持的操作系统: {self.system}")
         
-    def print_file(self, file_path: str, printer_name: Optional[str] = None) -> bool:
+    def print_file(self, file_path: str, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         打印文件（支持PDF和图片）
         
         Args:
             file_path: 要打印的文件路径
             printer_name: 打印机名称，如果为None则使用默认打印机
+            paper_size: 纸张大小，如果为None则使用默认纸张大小
             
         Returns:
             bool: 打印是否成功
@@ -75,14 +76,14 @@ class PrinterInfo:
         file_ext = os.path.splitext(file_path)[1].lower()
         
         if file_ext == '.pdf':
-            return self._print_pdf(file_path, printer_name)
+            return self._print_pdf(file_path, printer_name, paper_size)
         elif file_ext in ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff']:
-            return self._print_image(file_path, printer_name)
+            return self._print_image(file_path, printer_name, paper_size)
         else:
             print(f"不支持的文件类型: {file_ext}")
             return False
             
-    def print_data(self, data: str, file_type: str, printer_name: Optional[str] = None) -> bool:
+    def print_data(self, data: str, file_type: str, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         打印Base64编码的数据或文件路径
         
@@ -90,13 +91,14 @@ class PrinterInfo:
             data: Base64编码的数据或文件路径
             file_type: 文件类型，如'pdf'、'jpg'等
             printer_name: 打印机名称，如果为None则使用默认打印机
+            paper_size: 纸张大小，如果为None则使用默认纸张大小
             
         Returns:
             bool: 打印是否成功
         """
         # 检查是否是文件路径
         if os.path.exists(data):
-            return self.print_file(data, printer_name)
+            return self.print_file(data, printer_name, paper_size)
             
         # 尝试解码Base64数据
         try:
@@ -109,7 +111,7 @@ class PrinterInfo:
                 temp_file.write(file_data)
                 
             # 打印临时文件
-            result = self.print_file(temp_path, printer_name)
+            result = self.print_file(temp_path, printer_name, paper_size)
             
             # 删除临时文件
             try:
@@ -123,9 +125,14 @@ class PrinterInfo:
             print(f"处理Base64数据时出错: {e}")
             return False
     
-    def _print_pdf(self, pdf_path: str, printer_name: Optional[str] = None) -> bool:
+    def _print_pdf(self, pdf_path: str, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         打印PDF文件
+        
+        Args:
+            pdf_path: PDF文件路径
+            printer_name: 打印机名称，如果为None则使用默认打印机
+            paper_size: 纸张大小，如果为None则使用默认纸张大小
         """
         try:
             # 检查PyMuPDF是否可用
@@ -156,7 +163,7 @@ class PrinterInfo:
                 # 打印每一页
                 success = True
                 for image_path in image_paths:
-                    if not self._print_image(image_path, printer_name):
+                    if not self._print_image(image_path, printer_name, paper_size):
                         success = False
                         
                 return success
@@ -165,20 +172,25 @@ class PrinterInfo:
             print(f"打印PDF时出错: {e}")
             return False
     
-    def _print_image(self, image_path: str, printer_name: Optional[str] = None) -> bool:
+    def _print_image(self, image_path: str, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         打印图像文件
+        
+        Args:
+            image_path: 图像文件路径
+            printer_name: 打印机名称，如果为None则使用默认打印机
+            paper_size: 纸张大小，如果为None则使用默认纸张大小
         """
         try:
             # 打开图像
             image = Image.open(image_path)
             
             if self.system == "Windows":
-                return self._print_image_windows(image, printer_name)
+                return self._print_image_windows(image, printer_name, paper_size)
             elif self.system == "Darwin":  # macOS
-                return self._print_image_macos(image_path, printer_name)
+                return self._print_image_macos(image_path, printer_name, paper_size)
             elif self.system == "Linux":
-                return self._print_image_linux(image_path, printer_name)
+                return self._print_image_linux(image_path, printer_name, paper_size)
             else:
                 print(f"不支持的操作系统: {self.system}")
                 return False
@@ -187,9 +199,14 @@ class PrinterInfo:
             print(f"打印图像时出错: {e}")
             return False
     
-    def _print_image_windows(self, image: Image.Image, printer_name: Optional[str] = None) -> bool:
+    def _print_image_windows(self, image: Image.Image, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         在Windows上打印图像
+        
+        Args:
+            image: PIL图像对象
+            printer_name: 打印机名称，如果为None则使用默认打印机
+            paper_size: 纸张大小，如果为None则使用默认纸张大小
         """
         try:
             import win32print
@@ -199,6 +216,23 @@ class PrinterInfo:
             # 获取打印机设备上下文
             if printer_name is None:
                 printer_name = win32print.GetDefaultPrinter()
+            
+            # 设置纸张大小
+            if paper_size is not None:
+                # 获取打印机句柄
+                hPrinter = win32print.OpenPrinter(printer_name)
+                try:
+                    # 获取打印机属性
+                    devmode = win32print.GetPrinter(hPrinter, 2)["pDevMode"]
+                    # 查找匹配的纸张大小
+                    paper_sizes = self._get_windows_paper_sizes(printer_name)
+                    for size_name, size_id in paper_sizes.items():
+                        if size_name.lower() == paper_size.lower():
+                            devmode.PaperSize = size_id
+                            win32print.SetPrinter(hPrinter, 2, {"pDevMode": devmode}, 0)
+                            break
+                finally:
+                    win32print.ClosePrinter(hPrinter)
                 
             # 创建设备上下文
             hDC = win32ui.CreateDC()
@@ -235,16 +269,25 @@ class PrinterInfo:
             print(f"Windows打印图像时出错: {e}")
             return False
     
-    def _print_image_macos(self, image_path: str, printer_name: Optional[str] = None) -> bool:
+    def _print_image_macos(self, image_path: str, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         在macOS上打印图像
+        
+        Args:
+            image_path: 图像文件路径
+            printer_name: 打印机名称，如果为None则使用默认打印机
+            paper_size: 纸张大小，如果为None则使用默认纸张大小
         """
         try:
             cmd = ['lp']
             
-            # 如果指定了打印机，添加打印机参数
+            # 添加打印机参数
             if printer_name:
                 cmd.extend(['-d', printer_name])
+                
+            # 添加纸张大小参数
+            if paper_size:
+                cmd.extend(['-o', f'media={paper_size}'])
                 
             # 添加文件路径
             cmd.append(image_path)
@@ -262,16 +305,25 @@ class PrinterInfo:
             print(f"macOS打印图像时出错: {e}")
             return False
     
-    def _print_image_linux(self, image_path: str, printer_name: Optional[str] = None) -> bool:
+    def _print_image_linux(self, image_path: str, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         在Linux上打印图像
+        
+        Args:
+            image_path: 图像文件路径
+            printer_name: 打印机名称，如果为None则使用默认打印机
+            paper_size: 纸张大小，如果为None则使用默认纸张大小
         """
         try:
             cmd = ['lp']
             
-            # 如果指定了打印机，添加打印机参数
+            # 添加打印机参数
             if printer_name:
                 cmd.extend(['-d', printer_name])
+                
+            # 添加纸张大小参数
+            if paper_size:
+                cmd.extend(['-o', f'media={paper_size}'])
                 
             # 添加文件路径
             cmd.append(image_path)
@@ -342,56 +394,83 @@ class PrinterInfo:
     
     def _get_windows_paper_sizes(self, printer_handle) -> List[Dict[str, Any]]:
         """获取Windows打印机支持的纸张尺寸"""
+        import win32print
+        
         try:
-            import win32print
-            
             # 获取打印机名称
             printer_info = win32print.GetPrinter(printer_handle, 2)
             printer_name = printer_info['pPrinterName']
             
-            # 尝试不同的方式获取纸张尺寸
+            # 初始化变量
+            paper_sizes = None
+            paper_names = None
+            paper_dimensions = None
+            
+            # 尝试获取纸张信息
             try:
-                # 方法1：使用打印机名称和空端口名
-                # 使用常量值代替win32con，避免跨平台问题
-                paper_sizes = win32print.DeviceCapabilities(printer_name, "", 24, None)  # DC_PAPERS = 24
-                paper_names = win32print.DeviceCapabilities(printer_name, "", 16, None)  # DC_PAPERNAMES = 16
-                paper_dimensions = win32print.DeviceCapabilities(printer_name, "", 3, None)  # DC_PAPERSIZE = 3
-                
-                # 如果返回0，尝试使用默认纸张尺寸
-                if not paper_sizes or paper_sizes == 0:
-                    # 常见纸张尺寸ID和名称
-                    paper_sizes = [1, 9]  # 1=Letter, 9=A4
-                    paper_names = ["Letter", "A4"]
-                    paper_dimensions = [[2159, 2794], [2100, 2970]]  # 单位：0.1mm
+                # DC_PAPERS = 2，使用空字符串作为端口名
+                paper_sizes = win32print.DeviceCapabilities(printer_name, "", 2)
             except Exception:
-                # 使用默认纸张尺寸
-                paper_sizes = [1, 9]  # 1=Letter, 9=A4
-                paper_names = ["Letter", "A4"]
-                paper_dimensions = [[2159, 2794], [2100, 2970]]  # 单位：0.1mm
+                pass
+                
+            try:
+                # DC_PAPERNAMES = 16
+                paper_names = win32print.DeviceCapabilities(printer_name, "", 16)
+            except Exception:
+                pass
+                
+            try:
+                # DC_PAPERSIZE = 3
+                paper_dimensions = win32print.DeviceCapabilities(printer_name, "", 3)
+            except Exception:
+                pass
             
-            papers = []
-            if paper_sizes and paper_names and paper_dimensions:
-                for i, (size_id, name, dimensions) in enumerate(zip(paper_sizes, paper_names, paper_dimensions)):
-                    if isinstance(name, str):
-                        name_str = name.strip('\x00')
-                    else:
-                        name_str = f"纸张 {size_id}"
-                        
-                    papers.append({
-                        'id': size_id,
-                        'name': name_str,
-                        'width_mm': dimensions[0] / 10 if isinstance(dimensions, list) else 210,  # 默认A4宽度
-                        'height_mm': dimensions[1] / 10 if isinstance(dimensions, list) else 297   # 默认A4高度
-                    })
-            
-            return papers
+            # 检查是否成功获取了纸张信息
+            if not paper_sizes or not paper_names or not paper_dimensions:
+                return []
+                
+            return self._create_paper_list(paper_sizes, paper_names, paper_dimensions)
             
         except Exception:
-            # 返回一些默认的纸张尺寸
-            return [
-                {'id': 1, 'name': 'Letter', 'width_mm': 215.9, 'height_mm': 279.4},
-                {'id': 9, 'name': 'A4', 'width_mm': 210.0, 'height_mm': 297.0}
-            ]
+            return []
+            
+    def _create_paper_list(self, paper_sizes, paper_names, paper_dimensions) -> List[Dict[str, Any]]:
+        """创建纸张列表"""
+        papers = []
+        try:
+            if paper_sizes and paper_names and paper_dimensions:
+                for i, (size_id, name, dimensions) in enumerate(zip(paper_sizes, paper_names, paper_dimensions)):
+                    try:
+                        if isinstance(name, str):
+                            name_str = name.strip('\x00')
+                        else:
+                            name_str = f"纸张 {size_id}"
+                        
+                        # 检查dimensions的格式
+                        if isinstance(dimensions, dict) and 'x' in dimensions and 'y' in dimensions:
+                            # Windows DeviceCapabilities 返回的格式是 {'x': width, 'y': height}
+                            width = dimensions['x']
+                            height = dimensions['y']
+                        elif isinstance(dimensions, (list, tuple)) and len(dimensions) >= 2:
+                            # 列表或元组格式
+                            width = dimensions[0]
+                            height = dimensions[1]
+                        else:
+                            continue
+                            
+                        papers.append({
+                            "id": size_id,
+                            "name": name_str,
+                            "width": width,  # 单位：0.1mm
+                            "height": height  # 单位：0.1mm
+                        })
+                    except Exception:
+                        continue
+                        
+        except Exception:
+            pass
+            
+        return papers
     
     def _get_macos_printers(self) -> List[Dict[str, Any]]:
         """获取macOS系统的打印机信息"""
