@@ -1,0 +1,16 @@
+{
+  "name": "printer-client",
+  "version": "1.0.0",
+  "description": "Node.js client for printer service",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "keywords": ["printer", "client", "nodejs"],
+  "author": "",
+  "license": "MIT"
+}

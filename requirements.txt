@@ -6,4 +6,3 @@ pywin32>=306; sys_platform == "win32"
 # 图像和PDF处理依赖
 Pillow>=9.0.0
 PyMuPDF>=1.18.0
-
