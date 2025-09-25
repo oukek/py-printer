@@ -8,7 +8,6 @@
 
 import platform
 import subprocess
-import json
 import os
 import base64
 import tempfile
@@ -746,14 +745,6 @@ def main():
     try:
         printer_info = PrinterInfo()
         printer_info.print_printer_info()
-        
-        # 可选：将信息保存为JSON文件
-        save_to_file = input("\n是否将打印机信息保存到文件? (y/n): ").lower().strip()
-        if save_to_file == 'y':
-            printers = printer_info.get_printers()
-            with open('printer_info.json', 'w', encoding='utf-8') as f:
-                json.dump(printers, f, ensure_ascii=False, indent=2)
-            print("打印机信息已保存到 printer_info.json")
         
     except Exception as e:
         print(f"程序运行出错: {e}")
