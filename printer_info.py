@@ -27,10 +27,10 @@ else:
 # 导入图像和PDF处理库
 from PIL import Image
 try:
-    from pdf2image import convert_from_path, convert_from_bytes
+    import fitz  # PyMuPDF
 except ImportError:
-    print("PDF功能需要安装pdf2image库: pip install pdf2image")
-    # 如果没有安装pdf2image，程序仍然可以运行，但PDF功能不可用
+    print("PDF功能需要安装PyMuPDF库: pip install PyMuPDF")
+    # 如果没有安装PyMuPDF，程序仍然可以运行，但PDF功能不可用
 
 
 class PrinterInfo:
@@ -46,6 +46,14 @@ class PrinterInfo:
         Returns:
             List[Dict]: 包含打印机信息的列表
         """
+        if self.system == "Windows":
+            return self._get_windows_printers()
+        elif self.system == "Darwin":  # macOS
+            return self._get_macos_printers()
+        elif self.system == "Linux":
+            return self._get_linux_printers()
+        else:
+            raise NotImplementedError(f"不支持的操作系统: {self.system}")
         
     def print_file(self, file_path: str, printer_name: Optional[str] = None) -> bool:
         """
@@ -120,23 +128,30 @@ class PrinterInfo:
         打印PDF文件
         """
         try:
-            # 检查pdf2image是否可用
-            if 'convert_from_path' not in globals():
-                print("错误: 缺少pdf2image库，无法打印PDF文件")
+            # 检查PyMuPDF是否可用
+            if 'fitz' not in globals():
+                print("错误: 缺少PyMuPDF库，无法打印PDF文件")
                 return False
                 
-            # 将PDF转换为图像
-            images = convert_from_path(pdf_path)
+            # 打开PDF文件
+            pdf_document = fitz.open(pdf_path)
             
             # 创建临时目录保存图像
             with tempfile.TemporaryDirectory() as temp_dir:
                 image_paths = []
                 
                 # 保存每一页为图像
-                for i, image in enumerate(images):
-                    image_path = os.path.join(temp_dir, f"page_{i+1}.png")
-                    image.save(image_path, "PNG")
+                for page_num in range(len(pdf_document)):
+                    page = pdf_document.load_page(page_num)
+                    
+                    # 将页面渲染为图像
+                    pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x缩放以提高质量
+                    image_path = os.path.join(temp_dir, f"page_{page_num+1}.png")
+                    pix.save(image_path)
                     image_paths.append(image_path)
+                
+                # 关闭PDF文档
+                pdf_document.close()
                 
                 # 打印每一页
                 success = True

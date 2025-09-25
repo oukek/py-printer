@@ -7,6 +7,7 @@
 
 from printer_info import PrinterInfo
 import json
+import os
 
 
 def example_basic_usage():
@@ -121,36 +122,6 @@ def example_paper_size_analysis():
     
     print()
 
-
-def example_save_to_json():
-    """保存到JSON文件示例"""
-    print("=== 保存到JSON文件示例 ===")
-    
-    printer_info = PrinterInfo()
-    printers = printer_info.get_printers()
-    
-    # 保存完整信息到JSON文件
-    with open('all_printers.json', 'w', encoding='utf-8') as f:
-        json.dump(printers, f, ensure_ascii=False, indent=2)
-    
-    print("完整打印机信息已保存到 all_printers.json")
-    
-    # 保存简化信息到JSON文件
-    simplified_info = []
-    for printer in printers:
-        simplified_info.append({
-            'name': printer['name'],
-            'status': printer.get('status', '未知'),
-            'paper_count': len(printer.get('paper_sizes', []))
-        })
-    
-    with open('printers_summary.json', 'w', encoding='utf-8') as f:
-        json.dump(simplified_info, f, ensure_ascii=False, indent=2)
-    
-    print("简化打印机信息已保存到 printers_summary.json")
-    print()
-
-
 def example_find_printer_by_name():
     """根据名称查找打印机示例"""
     print("=== 根据名称查找打印机示例 ===")
@@ -182,6 +153,29 @@ def example_find_printer_by_name():
     print()
 
 
+def example_print_pdf():
+    """PDF打印示例"""
+    print("=== PDF打印示例 ===")
+    
+    # 创建PrinterInfo实例
+    printer_info = PrinterInfo()
+    
+    # 打印当前目录下的1.pdf文件
+    pdf_path = os.path.join(os.path.dirname(__file__), "1.pdf")
+    
+    if os.path.exists(pdf_path):
+        print(f"正在打印PDF文件: {pdf_path}")
+        result = printer_info.print_file(pdf_path)
+        if result:
+            print("PDF文件打印成功!")
+        else:
+            print("PDF文件打印失败!")
+    else:
+        print(f"PDF文件不存在: {pdf_path}")
+    
+    print()
+
+
 def main():
     """主函数 - 运行所有示例"""
     print("打印机信息获取示例程序")
@@ -193,8 +187,8 @@ def main():
         example_detailed_info()
         example_filter_printers()
         example_paper_size_analysis()
-        example_save_to_json()
         example_find_printer_by_name()
+        example_print_pdf()  # 添加PDF打印示例
         
         print("所有示例运行完成!")
         
