@@ -8,40 +8,68 @@
 import os
 import subprocess
 import sys
+import platform
 
 def build_executable():
     """使用PyInstaller打包成可执行文件"""
     print("🔨 开始打包...")
     
+    # 获取平台信息
+    system = platform.system().lower()
+    arch = platform.machine().lower()
+    
+    # 根据平台设置文件名和数据分隔符
+    if system == "windows":
+        executable_name = f"py-server-windows-{arch}.exe"
+        data_separator = ";"
+    elif system == "darwin":  # macOS
+        executable_name = f"py-server-macos-{arch}"
+        data_separator = ":"
+    else:  # Linux and others
+        executable_name = f"py-server-linux-{arch}"
+        data_separator = ":"
+    
     # PyInstaller命令
     cmd = [
-        'pyinstaller',
+        'python', '-m', 'PyInstaller',
         '--onefile',           # 打包成单个文件
-        '--name=printer-server', # 可执行文件名
-        '--add-data=printer.py:.',  # 包含printer.py
+        f'--name={executable_name}', # 平台特定的可执行文件名
+        f'--add-data=printer.py{data_separator}.',  # 包含printer.py (平台特定分隔符)
         'server.py'            # 主文件
     ]
     
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
         print("✅ 打包成功！")
-        print(f"📦 可执行文件位置: ./dist/printer-server")
-        return True
+        print(f"📦 可执行文件位置: ./dist/{executable_name}")
+        print(f"🖥️  平台: {system.title()} ({arch})")
+        return executable_name
     except subprocess.CalledProcessError as e:
         print(f"❌ 打包失败: {e}")
         print(f"错误输出: {e.stderr}")
-        return False
+        return None
 
 def demo_usage():
     """演示如何使用可执行文件"""
-    executable_path = "./dist/printer-server"
+    # 获取平台信息以确定可执行文件名
+    system = platform.system().lower()
+    arch = platform.machine().lower()
+    
+    if system == "windows":
+        executable_name = f"py-server-windows-{arch}.exe"
+    elif system == "darwin":  # macOS
+        executable_name = f"py-server-macos-{arch}"
+    else:  # Linux and others
+        executable_name = f"py-server-linux-{arch}"
+    
+    executable_path = f"./dist/{executable_name}"
     
     if not os.path.exists(executable_path):
         print(f"❌ 可执行文件不存在: {executable_path}")
         print("请先运行打包命令")
         return
     
-    print("\n🚀 演示可执行文件使用...")
+    print(f"\n🚀 演示可执行文件使用... ({system.title()} {arch})")
     
     # 方法1: 直接运行并解析输出
     print("\n方法1: 解析标准输出获取端口")
@@ -75,10 +103,11 @@ def demo_usage():
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "build":
         # 打包
-        if build_executable():
+        executable_name = build_executable()
+        if executable_name:
             print("\n📋 使用说明:")
-            print("1. 直接运行: ./dist/printer-server")
-            print("2. 获取端口: ./dist/printer-server --output-port")
+            print(f"1. 直接运行: ./dist/{executable_name}")
+            print(f"2. 获取端口: ./dist/{executable_name} --output-port")
             print("3. 在代码中使用: python port_reader.py")
     elif len(sys.argv) > 1 and sys.argv[1] == "demo":
         # 演示使用
