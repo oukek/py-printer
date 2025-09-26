@@ -6,9 +6,6 @@
 支持PDF和图片打印功能
 """
 
-import sys
-import json
-import traceback
 import platform
 import subprocess
 import os
