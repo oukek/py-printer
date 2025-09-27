@@ -91,46 +91,310 @@ node index.js  # 基本使用
 node test.js   # 完整测试
 ```
 
-## 🔧 API 接口说明
+## 🔧 API 接口文档
 
-### HTTP API 端点
+### 基础信息
 
-服务默认运行在 `http://localhost:6789`，支持以下API：
+- **服务地址**: `http://localhost:6789` (默认端口，支持自动端口检测)
+- **内容类型**: `application/json`
+- **响应格式**: 统一JSON格式，包含 `success` 字段表示操作结果
+
+### 根路径接口
 
 #### `GET /`
-获取API说明和可用端点列表
+获取API说明和所有可用端点列表
 
-#### `GET /printers`
-获取所有打印机列表
+**响应示例**:
+```json
+{
+  "message": "打印机服务API",
+  "version": "2.0.0",
+  "modules": {
+    "app": {
+      "prefix": "/app",
+      "description": "应用控制模块",
+      "endpoints": {
+        "/app/info": "获取应用信息 (GET)",
+        "/app/shutdown": "关闭服务器 (GET)",
+        "/app/health": "健康检查 (GET)",
+        "/app/status": "获取服务器状态 (GET)"
+      }
+    },
+    "printer": {
+      "prefix": "/printer",
+      "description": "打印机模块",
+      "endpoints": {
+        "/printer/list": "获取打印机列表 (GET)",
+        "/printer/print/file": "打印文件 (POST)",
+        "/printer/print/data": "打印数据 (POST)",
+        "/printer/default": "获取默认打印机 (GET)",
+        "/printer/status/<printer_name>": "获取指定打印机状态 (GET)",
+        "/printer/test": "测试打印机连接 (POST)"
+      }
+    }
+  }
+}
+```
+
+---
+
+### 应用控制模块 (`/app`)
+
+#### `GET /app/info`
+获取应用基本信息
+
+**响应示例**:
+```json
+{
+  "name": "打印机服务API",
+  "version": "2.0.0",
+  "status": "running",
+  "host": "localhost",
+  "port": 6789,
+  "debug": false,
+  "success": true
+}
+```
+
+#### `GET /app/shutdown`
+关闭服务器
+
+**响应示例**:
+```json
+{
+  "message": "服务器正在关闭...",
+  "success": true
+}
+```
+
+#### `GET /app/health`
+健康检查接口
+
+**响应示例**:
+```json
+{
+  "status": "healthy",
+  "timestamp": 1640995200.123,
+  "success": true
+}
+```
+
+#### `GET /app/status`
+获取详细的服务器状态信息
+
+**响应示例**:
+```json
+{
+  "system": {
+    "platform": "Windows",
+    "platform_version": "10.0.19041",
+    "architecture": "64bit",
+    "processor": "Intel64 Family 6 Model 142 Stepping 10, GenuineIntel",
+    "python_version": "3.9.7"
+  },
+  "process": {
+    "pid": 12345,
+    "memory_usage": 45.2,
+    "cpu_percent": 0.1,
+    "create_time": 1640995000.0
+  },
+  "success": true
+}
+```
+
+---
+
+### 打印机模块 (`/printer`)
+
+#### `GET /printer/list`
+获取系统中所有可用打印机列表
+
+**响应示例**:
 ```json
 {
   "result": [
     {
-      "name": "打印机名称",
-      "status": "打印机状态",
-      "driver": "驱动程序名称",
-      "paper_sizes": [...]
+      "name": "Microsoft Print to PDF",
+      "status": "Ready",
+      "driver": "Microsoft Print To PDF",
+      "paper_sizes": ["A4", "Letter", "Legal"]
+    },
+    {
+      "name": "HP LaserJet Pro",
+      "status": "Ready",
+      "driver": "HP Universal Printing PCL 6",
+      "paper_sizes": ["A4", "Letter", "A3"]
     }
   ],
   "success": true
 }
 ```
 
-#### `POST /print/file`
-打印文件
+#### `POST /printer/print/file`
+打印指定文件
+
+**请求参数**:
 ```json
 {
-  "file_path": "/path/to/file.pdf"
+  "file_path": "/path/to/document.pdf",
+  "printer_name": "HP LaserJet Pro",  // 可选，不指定则使用默认打印机
+  "paper_size": "A4"                  // 可选，不指定则使用默认纸张大小
 }
 ```
 
-#### `POST /print/data`
-打印数据
+**响应示例**:
 ```json
 {
-  "data": "要打印的文本内容"
+  "result": true,
+  "success": true,
+  "message": "打印任务已提交"
 }
 ```
+
+**错误响应**:
+```json
+{
+  "error": "缺少file_path参数",
+  "success": false
+}
+```
+
+#### `POST /printer/print/data`
+打印数据内容
+
+**请求参数**:
+```json
+{
+  "data": "Hello World!\n这是要打印的文本内容",
+  "file_type": "txt",                 // 支持: txt, html, pdf等
+  "printer_name": "HP LaserJet Pro",  // 可选
+  "paper_size": "A4"                  // 可选
+}
+```
+
+**响应示例**:
+```json
+{
+  "result": true,
+  "success": true,
+  "message": "打印任务已提交"
+}
+```
+
+**错误响应**:
+```json
+{
+  "error": "缺少data或file_type参数",
+  "success": false
+}
+```
+
+#### `GET /printer/default`
+获取系统默认打印机
+
+**响应示例**:
+```json
+{
+  "result": {
+    "name": "Microsoft Print to PDF",
+    "status": "Ready",
+    "driver": "Microsoft Print To PDF",
+    "paper_sizes": ["A4", "Letter", "Legal"]
+  },
+  "success": true,
+  "message": "获取默认打印机成功"
+}
+```
+
+#### `GET /printer/status/<printer_name>`
+获取指定打印机的详细状态
+
+**URL参数**:
+- `printer_name`: 打印机名称
+
+**响应示例**:
+```json
+{
+  "result": {
+    "name": "HP LaserJet Pro",
+    "status": "Ready",
+    "driver": "HP Universal Printing PCL 6",
+    "paper_sizes": ["A4", "Letter", "A3"]
+  },
+  "success": true,
+  "message": "获取打印机 HP LaserJet Pro 状态成功"
+}
+```
+
+**错误响应**:
+```json
+{
+  "error": "未找到打印机: NonExistentPrinter",
+  "success": false
+}
+```
+
+#### `POST /printer/test`
+测试打印机连接
+
+**请求参数**:
+```json
+{
+  "printer_name": "HP LaserJet Pro"  // 可选，不指定则测试所有打印机
+}
+```
+
+**响应示例（指定打印机）**:
+```json
+{
+  "result": "打印机 HP LaserJet Pro 连接正常",
+  "printer_info": {
+    "name": "HP LaserJet Pro",
+    "status": "Ready",
+    "driver": "HP Universal Printing PCL 6",
+    "paper_sizes": ["A4", "Letter", "A3"]
+  },
+  "success": true
+}
+```
+
+**响应示例（测试所有打印机）**:
+```json
+{
+  "result": "找到 2 台可用打印机",
+  "printers": [
+    {
+      "name": "Microsoft Print to PDF",
+      "status": "Ready"
+    },
+    {
+      "name": "HP LaserJet Pro",
+      "status": "Ready"
+    }
+  ],
+  "success": true
+}
+```
+
+---
+
+### 错误处理
+
+所有API接口都遵循统一的错误响应格式：
+
+```json
+{
+  "error": "错误描述",
+  "message": "详细错误信息",
+  "success": false
+}
+```
+
+**常见HTTP状态码**:
+- `200`: 请求成功
+- `400`: 请求参数错误
+- `404`: 资源未找到（如指定的打印机不存在）
+- `500`: 服务器内部错误
 
 ## 💻 使用示例
 
@@ -158,18 +422,44 @@ printer_info.print_data("Hello World!")
 ### HTTP API 调用
 
 ```bash
+# 获取API说明
+curl http://localhost:6789/
+
+# 获取应用信息
+curl http://localhost:6789/app/info
+
+# 健康检查
+curl http://localhost:6789/app/health
+
+# 获取服务器状态
+curl http://localhost:6789/app/status
+
 # 获取打印机列表
-curl http://localhost:6789/printers
+curl http://localhost:6789/printer/list
+
+# 获取默认打印机
+curl http://localhost:6789/printer/default
+
+# 获取指定打印机状态
+curl http://localhost:6789/printer/status/Microsoft%20Print%20to%20PDF
+
+# 测试打印机连接
+curl -X POST http://localhost:6789/printer/test \
+  -H "Content-Type: application/json" \
+  -d '{"printer_name": "Microsoft Print to PDF"}'
 
 # 打印文件
-curl -X POST http://localhost:6789/print/file \
+curl -X POST http://localhost:6789/printer/print/file \
   -H "Content-Type: application/json" \
-  -d '{"file_path": "document.pdf"}'
+  -d '{"file_path": "document.pdf", "printer_name": "Microsoft Print to PDF"}'
 
 # 打印数据
-curl -X POST http://localhost:6789/print/data \
+curl -X POST http://localhost:6789/printer/print/data \
   -H "Content-Type: application/json" \
-  -d '{"data": "Hello World!"}'
+  -d '{"data": "Hello World!", "file_type": "txt"}'
+
+# 关闭服务器
+curl http://localhost:6789/app/shutdown
 ```
 
 ### Node.js 客户端调用
@@ -185,16 +475,50 @@ async function example() {
         const port = await client.startService();
         console.log(`服务运行在端口: ${port}`);
         
+        // 获取应用信息
+        const appInfo = await client.request('GET', '/app/info');
+        console.log('应用信息:', appInfo.data);
+        
+        // 健康检查
+        const health = await client.request('GET', '/app/health');
+        console.log('健康状态:', health.data);
+        
         // 获取打印机列表
-        const result = await client.getPrinters();
-        console.log(`执行时长: ${result.duration}ms`);
-        console.log('打印机列表:', result.data);
+        const printers = await client.request('GET', '/printer/list');
+        console.log(`执行时长: ${printers.duration}ms`);
+        console.log('打印机列表:', printers.data);
+        
+        // 获取默认打印机
+        const defaultPrinter = await client.request('GET', '/printer/default');
+        console.log('默认打印机:', defaultPrinter.data);
+        
+        // 测试打印机连接
+        const testResult = await client.request('POST', '/printer/test', {
+            printer_name: 'Microsoft Print to PDF'
+        });
+        console.log('测试结果:', testResult.data);
+        
+        // 打印文件
+        const printFile = await client.request('POST', '/printer/print/file', {
+            file_path: 'document.pdf',
+            printer_name: 'Microsoft Print to PDF'
+        });
+        console.log('打印文件结果:', printFile.data);
+        
+        // 打印数据
+        const printData = await client.request('POST', '/printer/print/data', {
+            data: 'Hello World!',
+            file_type: 'txt'
+        });
+        console.log('打印数据结果:', printData.data);
         
     } finally {
         // 停止服务
         client.stopService();
     }
 }
+
+example().catch(console.error);
 ```
 
 ## 📊 性能数据
