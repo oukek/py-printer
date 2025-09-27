@@ -61,7 +61,7 @@ def clean_build_files():
         system_name = platform.system().lower()
         if system_name == 'windows':
             exe_file = 'dist/py-server.exe'
-            final_file = 'dist/py-server-windows-amd64.exe'
+            final_file = 'dist/py-server-windows.exe'
         elif system_name == 'darwin':
             exe_file = 'dist/py-server'
             final_file = 'dist/py-server-macos'
@@ -94,7 +94,7 @@ def rename_executable():
     
     if system_name == 'windows':
         source = 'dist/py-server.exe'
-        target = 'dist/py-server-windows-amd64.exe'
+        target = 'dist/py-server-windows.exe'
     elif system_name == 'darwin':
         source = 'dist/py-server'
         target = 'dist/py-server-macos'

@@ -16,3 +16,4 @@ psutil>=5.9.0
 
 # 打包工具依赖
 PyInstaller>=5.13.0
+

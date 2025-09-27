@@ -32,7 +32,7 @@ if errorlevel 1 (
 
 echo 正在清理之前的构建文件...
 if exist "build" rmdir /s /q "build"
-if exist "dist\py-server.exe" del "dist\py--server.exe"
+if exist "dist\py-server.exe" del "dist\py-server.exe"
 
 echo 正在使用PyInstaller打包应用...
 pyinstaller build.spec --clean --noconfirm
@@ -50,13 +50,13 @@ if exist "dist\py-server.exe" (
     echo ========================================
     
     REM 重命名为更具体的名称
-    if exist "dist\py-server-windows-amd64.exe" del "dist\py-server-windows-amd64.exe"
-    ren "dist\py-server.exe" "py-server-windows-amd64.exe"
+    if exist "dist\py-server-windows.exe" del "dist\py-server-windows.exe"
+    ren "dist\py-server.exe" "py-server-windows.exe"
     
-    echo 文件已重命名为: dist\py-server-windows-amd64.exe
+    echo 文件已重命名为: dist\py-server-windows.exe
     echo.
     echo 使用方法:
-    echo   双击运行或在命令行中执行: dist\py-server-windows-amd64.exe
+    echo   双击运行或在命令行中执行: dist\py-server-windows.exe
     echo   服务器将在 http://localhost:6789 启动
     echo.
 ) else (
