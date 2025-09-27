@@ -1,8 +1,18 @@
 # 打印机信息获取工具依赖
 
+# Flask Web框架依赖
+Flask>=2.3.0
+Flask-CORS>=4.0.0
+
 # Windows系统需要的依赖
 pywin32>=306; sys_platform == "win32"
 
 # 图像和PDF处理依赖
 Pillow>=9.0.0
 PyMuPDF>=1.18.0
+
+# 可选：系统监控依赖（用于服务器状态接口）
+psutil>=5.9.0
+
+# 打包工具依赖
+PyInstaller>=5.13.0
