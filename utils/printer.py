@@ -50,7 +50,182 @@ class PrinterInfo:
             return self._get_linux_printers()
         else:
             raise NotImplementedError(f"不支持的操作系统: {self.system}")
+    
+    def get_paper_dimensions(self, printer_name: str, paper_size: str) -> Optional[Dict[str, float]]:
+        """
+        获取指定打印机和纸张的尺寸信息
         
+        Args:
+            printer_name: 打印机名称
+            paper_size: 纸张大小名称
+            
+        Returns:
+            Dict[str, float]: 包含width和height的字典（单位：毫米），如果未找到则返回None
+        """
+        try:
+            printers = self.get_printers()
+            
+            # 查找指定打印机
+            target_printer = None
+            for printer in printers:
+                if printer['name'] == printer_name:
+                    target_printer = printer
+                    break
+            
+            if not target_printer:
+                print(f"未找到打印机: {printer_name}")
+                return None
+            
+            # 查找指定纸张
+            for paper in target_printer.get('paper_sizes', []):
+                if PlatformUtils.is_windows():
+                    # Windows平台有详细的尺寸信息
+                    if paper.get('name', '').lower() == paper_size.lower():
+                        # Windows返回的尺寸单位是0.1mm，需要转换为mm
+                        return {
+                            'width': paper['width'] / 10.0,
+                            'height': paper['height'] / 10.0
+                        }
+                else:
+                    # macOS/Linux平台需要通过纸张名称映射到标准尺寸
+                    if paper.get('name', '').lower() == paper_size.lower():
+                        return self._get_standard_paper_size(paper_size)
+            
+            print(f"未找到纸张: {paper_size}")
+            return None
+            
+        except Exception as e:
+            print(f"获取纸张尺寸时出错: {e}")
+            return None
+    
+    def _get_standard_paper_size(self, paper_name: str) -> Optional[Dict[str, float]]:
+        """
+        获取标准纸张尺寸（用于macOS/Linux平台）
+        
+        Args:
+            paper_name: 纸张名称
+            
+        Returns:
+            Dict[str, float]: 包含width和height的字典（单位：毫米）
+        """
+        # 标准纸张尺寸映射表（单位：毫米）
+        standard_sizes = {
+            # ISO A系列
+            'a4': {'width': 210, 'height': 297},
+            'a3': {'width': 297, 'height': 420},
+            'a5': {'width': 148, 'height': 210},
+            
+            # 北美标准
+            'letter': {'width': 216, 'height': 279},
+            'legal': {'width': 216, 'height': 356},
+            'tabloid': {'width': 279, 'height': 432},
+            
+            # 其他常见尺寸
+            'b4': {'width': 250, 'height': 353},
+            'b5': {'width': 176, 'height': 250},
+            'executive': {'width': 184, 'height': 267},
+            'folio': {'width': 210, 'height': 330},
+            
+            # 热敏纸标准尺寸
+            # 小票纸
+            '58mm': {'width': 58, 'height': 297},  # 58mm宽度，长度可变，默认A4长度
+            '80mm': {'width': 80, 'height': 297},  # 80mm宽度，长度可变
+            
+            # 标签纸
+            '40x30': {'width': 40, 'height': 30},   # 40x30mm标签
+            '50x30': {'width': 50, 'height': 30},   # 50x30mm标签
+            '60x40': {'width': 60, 'height': 40},   # 60x40mm标签
+            '70x50': {'width': 70, 'height': 50},   # 70x50mm标签
+            '100x50': {'width': 100, 'height': 50}, # 100x50mm标签
+            '100x70': {'width': 100, 'height': 70}, # 100x70mm标签
+            '100x100': {'width': 100, 'height': 100}, # 100x100mm标签
+            
+            # 快递单据
+            '100x150': {'width': 100, 'height': 150}, # 快递标签
+            '100x180': {'width': 100, 'height': 180}, # 大号快递标签
+            
+            # 珠宝标签
+            '30x20': {'width': 30, 'height': 20},   # 珠宝小标签
+            '40x20': {'width': 40, 'height': 20},   # 珠宝标签
+            
+            # 服装吊牌
+            '40x60': {'width': 40, 'height': 60},   # 服装吊牌
+            '50x80': {'width': 50, 'height': 80},   # 大号服装吊牌
+            
+            # 条码标签
+            '25x15': {'width': 25, 'height': 15},   # 小条码标签
+            '32x19': {'width': 32, 'height': 19},   # 标准条码标签
+            '40x25': {'width': 40, 'height': 25},   # 大条码标签
+            
+            # 价格标签
+            '22x12': {'width': 22, 'height': 12},   # 价格标签
+            '26x16': {'width': 26, 'height': 16},   # 价格标签
+            
+            # 医疗标签
+            '25x25': {'width': 25, 'height': 25},   # 医疗标签
+            '38x25': {'width': 38, 'height': 25},   # 医疗标签
+            
+            # 物流标签
+            '76x25': {'width': 76, 'height': 25},   # 物流标签
+            '76x38': {'width': 76, 'height': 38},   # 物流标签
+            
+            # 热敏纸卷纸（宽度固定，长度连续）
+            'thermal57': {'width': 57, 'height': 297},  # 57mm热敏纸
+            'thermal80': {'width': 80, 'height': 297},  # 80mm热敏纸
+            'thermal110': {'width': 110, 'height': 297}, # 110mm热敏纸
+        }
+        
+        # 清理纸张名称（去除空格、下划线，转小写）
+        clean_name = paper_name.lower().replace('_', '').replace(' ', '').replace('x', 'x')
+        
+        return standard_sizes.get(clean_name)
+    
+    def _resize_image_for_printing(self, image: Image.Image, paper_width_mm: float, paper_height_mm: float, dpi: int = 300, margin_mm: float = 10) -> Image.Image:
+        """
+        调整图片尺寸以适应可打印区域
+        
+        Args:
+            image: 原始图片
+            paper_width_mm: 纸张宽度（毫米）
+            paper_height_mm: 纸张高度（毫米）
+            dpi: 目标DPI
+            margin_mm: 边距（毫米）
+            
+        Returns:
+            调整后的图片
+        """
+        # 计算可打印区域（减去边距）
+        printable_width_mm = paper_width_mm - 2 * margin_mm
+        printable_height_mm = paper_height_mm - 2 * margin_mm
+        
+        # 将毫米转换为像素
+        printable_width_px = int(printable_width_mm * dpi / 25.4)
+        printable_height_px = int(printable_height_mm * dpi / 25.4)
+        
+        # 计算缩放比例
+        width_ratio = printable_width_px / image.width
+        height_ratio = printable_height_px / image.height
+        
+        # 选择较小的缩放比例，确保图片完全适应纸张
+        scale_ratio = min(width_ratio, height_ratio)
+        
+        # 如果图片已经比可打印区域小，不进行放大
+        if scale_ratio > 1:
+            scale_ratio = 1
+        
+        # 计算新尺寸
+        new_width = int(image.width * scale_ratio)
+        new_height = int(image.height * scale_ratio)
+        
+        print(f"图片缩放信息:")
+        print(f"  原始尺寸: {image.width}x{image.height} 像素")
+        print(f"  可打印区域: {printable_width_px}x{printable_height_px} 像素")
+        print(f"  缩放比例: {scale_ratio:.2f}")
+        print(f"  新尺寸: {new_width}x{new_height} 像素")
+        
+        # 缩放图片
+        return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
     def print_file(self, file_path: str, printer_name: Optional[str] = None, paper_size: Optional[str] = None) -> bool:
         """
         打印文件（支持PDF和图片）
@@ -167,12 +342,41 @@ class PrinterInfo:
             # 打开图像
             image = Image.open(image_path)
             
+            # 如果指定了纸张大小，进行图片缩放
+            if paper_size and printer_name:
+                paper_dimensions = self.get_paper_dimensions(printer_name, paper_size)
+                if paper_dimensions:
+                    print(f"纸张尺寸: {paper_dimensions['width']}mm x {paper_dimensions['height']}mm")
+                    image = self._resize_image_for_printing(
+                        image, 
+                        paper_dimensions['width'], 
+                        paper_dimensions['height']
+                    )
+                else:
+                    print("无法获取纸张尺寸，使用原始图片尺寸打印")
+            
             if PlatformUtils.is_windows():
                 return self._print_image_windows(image, printer_name, paper_size)
             elif PlatformUtils.is_macos():
-                return self._print_image_macos(image_path, printer_name, paper_size)
+                # 对于macOS，需要保存缩放后的图片到临时文件
+                if paper_size and printer_name:
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                        image.save(temp_file.name, 'PNG')
+                        result = self._print_image_macos(temp_file.name, printer_name, paper_size)
+                        os.unlink(temp_file.name)  # 删除临时文件
+                        return result
+                else:
+                    return self._print_image_macos(image_path, printer_name, paper_size)
             elif PlatformUtils.is_linux():
-                return self._print_image_linux(image_path, printer_name, paper_size)
+                # 对于Linux，需要保存缩放后的图片到临时文件
+                if paper_size and printer_name:
+                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
+                        image.save(temp_file.name, 'PNG')
+                        result = self._print_image_linux(temp_file.name, printer_name, paper_size)
+                        os.unlink(temp_file.name)  # 删除临时文件
+                        return result
+                else:
+                    return self._print_image_linux(image_path, printer_name, paper_size)
             else:
                 print(f"不支持的操作系统: {self.system}")
                 return False
@@ -207,16 +411,16 @@ class PrinterInfo:
                     # 获取打印机属性
                     devmode = win32print.GetPrinter(hPrinter, 2)["pDevMode"]
                     # 查找匹配的纸张大小
-                    paper_sizes = self._get_windows_paper_sizes(printer_name)
-                    for size_name, size_id in paper_sizes.items():
-                        if size_name.lower() == paper_size.lower():
-                            devmode.PaperSize = size_id
+                    paper_sizes = self._get_windows_paper_sizes(hPrinter)
+                    for paper in paper_sizes:
+                        if paper['name'].lower() == paper_size.lower():
+                            devmode.PaperSize = paper['id']
                             win32print.SetPrinter(hPrinter, 2, {"pDevMode": devmode}, 0)
                             break
                 finally:
                     win32print.ClosePrinter(hPrinter)
                 
-            # 创建设备上下文
+            # 创建设置上下文
             hDC = win32ui.CreateDC()
             hDC.CreatePrinterDC(printer_name)
             
@@ -229,13 +433,29 @@ class PrinterInfo:
             dpi_x = hDC.GetDeviceCaps(88)  # LOGPIXELSX = 88
             dpi_y = hDC.GetDeviceCaps(90)  # LOGPIXELSY = 90
             
-            # 计算打印尺寸（英寸）
-            width_inch = image.width / dpi_x
-            height_inch = image.height / dpi_y
+            # 获取可打印区域尺寸
+            printable_width = hDC.GetDeviceCaps(110)  # HORZRES = 110
+            printable_height = hDC.GetDeviceCaps(111)  # VERTRES = 111
+            
+            # 计算图片在打印区域的位置（居中）
+            img_width = image.width
+            img_height = image.height
+            
+            # 如果图片比可打印区域大，按比例缩放
+            if img_width > printable_width or img_height > printable_height:
+                scale_x = printable_width / img_width
+                scale_y = printable_height / img_height
+                scale = min(scale_x, scale_y)
+                img_width = int(img_width * scale)
+                img_height = int(img_height * scale)
+            
+            # 计算居中位置
+            x = (printable_width - img_width) // 2
+            y = (printable_height - img_height) // 2
             
             # 打印图像
             ImageWin.Dib(image).draw(hDC.GetHandleOutput(), 
-                                    (0, 0, int(width_inch * dpi_x), int(height_inch * dpi_y)))
+                                    (x, y, x + img_width, y + img_height))
             
             # 结束打印
             hDC.EndPage()

@@ -148,24 +148,48 @@ class CommandUtils:
                             
                             for option in options:
                                 if option and not option.startswith('*'):
+                                    # 清理选项名称
+                                    clean_option = option.strip('*')
                                     papers.append({
-                                        'name': option,
-                                        'display_name': option.replace('_', ' ')
+                                        'name': clean_option,
+                                        'display_name': clean_option.replace('_', ' ')
                                     })
             
             # 如果没有获取到纸张信息，添加常见的纸张类型
             if not papers:
                 papers = [
+                    # 标准纸张
                     {'name': 'A4', 'display_name': 'A4'},
                     {'name': 'Letter', 'display_name': 'Letter'},
-                    {'name': 'Legal', 'display_name': 'Legal'}
+                    {'name': 'Legal', 'display_name': 'Legal'},
+                    {'name': 'A3', 'display_name': 'A3'},
+                    {'name': 'A5', 'display_name': 'A5'},
+                    
+                    # 热敏纸常见规格
+                    {'name': '58mm', 'display_name': '58mm 小票纸'},
+                    {'name': '80mm', 'display_name': '80mm 小票纸'},
+                    {'name': '100x150', 'display_name': '100x150mm 快递标签'},
+                    {'name': '100x100', 'display_name': '100x100mm 标签'},
+                    {'name': '76x25', 'display_name': '76x25mm 物流标签'},
+                    {'name': '40x30', 'display_name': '40x30mm 标签'},
                 ]
             
             return papers
             
         except Exception as e:
             print(f"获取纸张尺寸时出错: {e}")
-            return []
+            # 返回默认纸张列表
+            return [
+                # 标准纸张
+                {'name': 'A4', 'display_name': 'A4'},
+                {'name': 'Letter', 'display_name': 'Letter'},
+                {'name': 'Legal', 'display_name': 'Legal'},
+                
+                # 热敏纸常见规格
+                {'name': '58mm', 'display_name': '58mm 小票纸'},
+                {'name': '80mm', 'display_name': '80mm 小票纸'},
+                {'name': '100x150', 'display_name': '100x150mm 快递标签'},
+            ]
 
 
 class PrinterStatusUtils:
