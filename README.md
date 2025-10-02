@@ -107,7 +107,7 @@ node test.js   # 完整测试
 **响应示例**:
 ```json
 {
-  "message": "打印机服务API",
+  "message": "服务API",
   "version": "2.0.0",
   "modules": {
     "app": {
