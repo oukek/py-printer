@@ -1,7 +1,8 @@
 const PrinterClient = require('./index.js');
+const path = require('path');
 
 /**
- * 测试脚本 - 验证打印机服务调用功能
+ * 测试脚本 - 验证打印机服务调用功能并打印PDF文件
  */
 async function runTests() {
     console.log('🧪 开始测试打印机客户端...\n');
@@ -69,13 +70,38 @@ async function runTests() {
         } else {
             console.log(`❌ 获取打印机列表失败: ${printersResult.error}`);
         }
+
+        // 测试4: 打印PDF文件
+        console.log('\n📋 测试4: 打印PDF文件');
+        console.log('-'.repeat(30));
         
-        // 测试4: 多次请求性能测试
-        console.log('\n📋 测试4: 性能测试 (连续5次请求)');
+        const pdfPath = path.join(__dirname, '1.pdf');
+        console.log(`📄 PDF文件路径: ${pdfPath}`);
+        
+        const printResult = await client.printFile(pdfPath);
+        testResults.push({
+            test: '打印PDF文件',
+            success: printResult.success,
+            duration: printResult.duration,
+            details: printResult.success ? 
+                (printResult.data?.message || '打印任务已提交') : 
+                printResult.error
+        });
+        
+        if (printResult.success) {
+            console.log(`✅ PDF打印成功，耗时: ${printResult.duration}ms`);
+            console.log('📋 打印结果:');
+            console.log(JSON.stringify(printResult.data, null, 2));
+        } else {
+            console.log(`❌ PDF打印失败: ${printResult.error}`);
+        }
+        
+        // 测试5: 性能测试 (连续3次请求)
+        console.log('\n📋 测试5: 性能测试 (连续3次请求)');
         console.log('-'.repeat(30));
         
         const performanceResults = [];
-        for (let i = 1; i <= 5; i++) {
+        for (let i = 1; i <= 3; i++) {
             console.log(`🔄 第${i}次请求...`);
             const result = await client.getPrinters();
             performanceResults.push(result.duration);

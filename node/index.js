@@ -15,10 +15,14 @@ class PrinterClient {
      */
     async startService() {
         return new Promise((resolve, reject) => {
-            const executablePath = path.join(__dirname, '..', 'dist', 'printer-server');
+            // 根据操作系统选择正确的可执行文件
+            const isWindows = process.platform === 'win32';
+            const executableName = isWindows ? 'py-server-windows.exe' : 'py-server-macos';
+            const executablePath = path.join(__dirname, '..', 'dist', executableName);
             
             console.log('🚀 启动打印机服务...');
             console.log(`📁 可执行文件路径: ${executablePath}`);
+            console.log(`🖥️  操作系统: ${process.platform}`);
             
             // 启动可执行文件
             this.process = spawn(executablePath, ['--output-port'], {
@@ -87,7 +91,7 @@ class PrinterClient {
         const startTime = Date.now();
 
         try {
-            const response = await axios.get(`${this.baseUrl}/printers`, {
+            const response = await axios.get(`${this.baseUrl}/printer/list`, {
                 timeout: 5000 // 5秒超时
             });
             
@@ -158,6 +162,130 @@ class PrinterClient {
                 success: false,
                 error: error.message,
                 duration: duration
+            };
+        }
+    }
+
+    /**
+     * 打印文件
+     * @param {string} filePath 文件路径
+     * @param {string} printerName 打印机名称（可选）
+     * @param {string} paperSize 纸张大小（可选）
+     * @returns {Promise<Object>} 返回打印结果
+     */
+    async printFile(filePath, printerName = null, paperSize = null) {
+        if (!this.baseUrl) {
+            throw new Error('服务未启动，请先调用 startService()');
+        }
+
+        console.log(`🖨️  打印文件: ${filePath}`);
+        const startTime = Date.now();
+
+        try {
+            const requestData = {
+                file_path: filePath
+            };
+
+            if (printerName) {
+                requestData.printer_name = printerName;
+            }
+
+            if (paperSize) {
+                requestData.paper_size = paperSize;
+            }
+
+            const response = await axios.post(`${this.baseUrl}/printer/print/file`, requestData, {
+                timeout: 10000, // 10秒超时，打印可能需要更长时间
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+
+            console.log(`⏱️  打印请求耗时: ${duration}ms`);
+            console.log(`📊 响应状态: ${response.status}`);
+            
+            return {
+                success: true,
+                data: response.data,
+                duration: duration,
+                timestamp: new Date().toISOString()
+            };
+
+        } catch (error) {
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            console.error(`❌ 打印文件失败: ${error.message}`);
+            console.log(`⏱️  请求耗时: ${duration}ms`);
+            
+            return {
+                success: false,
+                error: error.message,
+                duration: duration,
+                timestamp: new Date().toISOString()
+            };
+        }
+    }
+
+    /**
+     * 通用HTTP请求方法
+     * @param {string} method HTTP方法
+     * @param {string} path API路径
+     * @param {Object} data 请求数据（可选）
+     * @returns {Promise<Object>} 返回请求结果
+     */
+    async request(method, path, data = null) {
+        if (!this.baseUrl) {
+            throw new Error('服务未启动，请先调用 startService()');
+        }
+
+        console.log(`🌐 ${method} ${path}`);
+        const startTime = Date.now();
+
+        try {
+            const config = {
+                method: method.toLowerCase(),
+                url: `${this.baseUrl}${path}`,
+                timeout: 10000,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            if (data && (method.toUpperCase() === 'POST' || method.toUpperCase() === 'PUT')) {
+                config.data = data;
+            }
+
+            const response = await axios(config);
+            
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+
+            console.log(`⏱️  请求耗时: ${duration}ms`);
+            console.log(`📊 响应状态: ${response.status}`);
+            
+            return {
+                success: true,
+                data: response.data,
+                duration: duration,
+                timestamp: new Date().toISOString()
+            };
+
+        } catch (error) {
+            const endTime = Date.now();
+            const duration = endTime - startTime;
+            
+            console.error(`❌ 请求失败: ${error.message}`);
+            console.log(`⏱️  请求耗时: ${duration}ms`);
+            
+            return {
+                success: false,
+                error: error.message,
+                duration: duration,
+                timestamp: new Date().toISOString()
             };
         }
     }
