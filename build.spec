@@ -24,11 +24,18 @@ datas += [
 
 # 收集隐藏导入
 hiddenimports = []
-hiddenimports += ['flask', 'flask_cors', 'PIL', 'fitz', 'psutil']
+hiddenimports += [
+    'flask', 'flask_cors', 'PIL', 'fitz', 'psutil',
+    'werkzeug', 'jinja2', 'markupsafe', 'itsdangerous', 'click',
+    'blinker'
+]
 
 # Windows特定的隐藏导入
 if sys.platform == 'win32':
-    hiddenimports += ['win32api', 'win32print', 'win32gui']
+    hiddenimports += [
+        'win32api', 'win32print', 'win32gui', 'win32con',
+        'pywintypes'
+    ]
 
 # 分析配置
 a = Analysis(
@@ -50,6 +57,14 @@ a = Analysis(
         'IPython',
         'pytest',
         'unittest',
+        'doctest',
+        'pdb',
+        'turtle',
+        'curses',
+        'readline',
+        'antigravity',
+        'this',
+        'webbrowser'
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

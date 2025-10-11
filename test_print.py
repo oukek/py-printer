@@ -42,8 +42,8 @@ def test_print_pdf():
         print(f"获取打印机列表失败: {e}")
         return False
     
-    # 指定使用HPRT N41打印机
-    target_printer = "HPRT N41"
+    # 指定使用Q5BT打印机
+    target_printer = "Q5BT"
     selected_printer = None
     
     # 查找指定的打印机

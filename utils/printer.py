@@ -433,13 +433,29 @@ class PrinterInfo:
             dpi_x = hDC.GetDeviceCaps(88)  # LOGPIXELSX = 88
             dpi_y = hDC.GetDeviceCaps(90)  # LOGPIXELSY = 90
             
-            # 获取可打印区域尺寸
-            printable_width = hDC.GetDeviceCaps(110)  # HORZRES = 110
-            printable_height = hDC.GetDeviceCaps(111)  # VERTRES = 111
+            # 获取打印机物理页面和可打印区域信息
+            # 物理页面尺寸
+            physical_width = hDC.GetDeviceCaps(110)   # HORZRES = 110
+            physical_height = hDC.GetDeviceCaps(111)  # VERTRES = 111
+            
+            # 物理页面的左上角偏移（物理边距）
+            physical_offset_x = hDC.GetDeviceCaps(112)  # PHYSICALOFFSETX = 112
+            physical_offset_y = hDC.GetDeviceCaps(113)  # PHYSICALOFFSETY = 113
+            
+            # 实际可打印区域尺寸（考虑物理边距）
+            printable_width = physical_width
+            printable_height = physical_height
+            
+            print(f"打印区域信息:")
+            print(f"  物理页面尺寸: {physical_width}x{physical_height} 像素")
+            print(f"  物理边距偏移: ({physical_offset_x}, {physical_offset_y}) 像素")
+            print(f"  可打印区域: {printable_width}x{printable_height} 像素")
             
             # 计算图片在打印区域的位置（居中）
             img_width = image.width
             img_height = image.height
+            
+            print(f"原始图片尺寸: {img_width}x{img_height} 像素")
             
             # 如果图片比可打印区域大，按比例缩放
             if img_width > printable_width or img_height > printable_height:
@@ -448,10 +464,15 @@ class PrinterInfo:
                 scale = min(scale_x, scale_y)
                 img_width = int(img_width * scale)
                 img_height = int(img_height * scale)
+                print(f"缩放后图片尺寸: {img_width}x{img_height} 像素 (缩放比例: {scale:.2f})")
             
-            # 计算居中位置
-            x = (printable_width - img_width) // 2
-            y = (printable_height - img_height) // 2
+            # 计算打印位置：横向居中，垂直从上开始
+            # 横向居中：在可打印区域内居中，然后加上物理边距偏移
+            x = physical_offset_x + (printable_width - img_width) // 2
+            # 垂直从上开始：直接使用物理边距偏移作为起始位置
+            y = physical_offset_y
+            
+            print(f"图片打印位置: ({x}, {y}) 像素 (横向居中，垂直从上开始)")
             
             # 打印图像
             ImageWin.Dib(image).draw(hDC.GetHandleOutput(), 
