@@ -29,9 +29,11 @@ def create_app(config_name=None):
     # 注册蓝图
     from modules.app_module import app_bp
     from modules.printer_module import printer_bp
+    from modules.printing_module import printing_bp
     
     app.register_blueprint(app_bp, url_prefix='/app')
     app.register_blueprint(printer_bp, url_prefix='/printer')
+    app.register_blueprint(printing_bp, url_prefix='/printing')
     
     # 根路径API说明
     @app.route('/')
@@ -55,6 +57,15 @@ def create_app(config_name=None):
                         "/printer/list": "获取打印机列表 (GET)",
                         "/printer/print/file": "打印文件 (POST)",
                         "/printer/print/data": "打印数据 (POST)"
+                    }
+                },
+                "printing": {
+                    "prefix": "/printing",
+                    "description": "印花模块",
+                    "endpoints": {
+                        "/printing/channel/create": "创建通道图 (POST)",
+                        "/printing/image/info": "获取图像信息 (POST)",
+                        "/printing/test": "测试印花模块 (GET)"
                     }
                 }
             }
