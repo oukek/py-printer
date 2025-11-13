@@ -90,6 +90,25 @@
             border-color: #007aff;
             box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
         }
+
+        #input-mode {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .mode-label {
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            color: #1c1c1e;
+        }
+        #manual-checkbox {
+            width: 18px;
+            height: 18px;
+            margin-right: 8px;
+            accent-color: #007aff;
+        }
     </style>
 </head>
 <body>
@@ -102,7 +121,9 @@
                 <select id="printers" name="printers"></select>
             </div>
         </div>
-        <br>
+        <div id="input-mode" class="mode-toggle">
+            <label class="mode-label"><input type="checkbox" id="manual-checkbox">手动输入</label>
+        </div>
         <input type="text" id="scanner-input" placeholder="请扫码枪扫码输入" disabled style="width: 250px; padding: 10px; border-radius: 8px; border: 1px solid #d1d1d6; font-size: 16px; background-color: #f2f2f7; color: #1c1c1e; text-align: center;">
         <br>
         <br>
@@ -172,14 +193,97 @@
             onScanResult,
         };
 
+        function ensureFullOssUrl(pdfPath) {
+            const base = 'https://yinnierp.oss-accelerate.aliyuncs.com';
+            if (!pdfPath) throw new Error('pdfPath 为空');
+            if (pdfPath.startsWith('http://') || pdfPath.startsWith('https://')) return pdfPath;
+            return base + '/' + pdfPath.replace(/^\/+/, '');
+        }
+
+        function blobToBase64(blob) {
+            return new Promise(function(resolve, reject) {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const s = String(reader.result || '');
+                    const base64 = s.indexOf(',') > -1 ? s.split(',')[1] : s;
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        let manualMode = false;
+
         window.onload = function() {
             fetchPrinters();
-            scanner.start();
+            const input = document.getElementById('scanner-input');
+            const checkbox = document.getElementById('manual-checkbox');
+
+            async function processOrder(orderNumber) {
+                if (!orderNumber) return;
+                try {
+                    const printerSelect = document.getElementById('printers');
+                    const printer_name = printerSelect && printerSelect.value ? printerSelect.value : '';
+                    if (!printer_name) { alert('请先选择打印机'); return; }
+                    console.log('已选择打印机:', printer_name);
+                    const res = await window.pywebview.api.get_waybill_pdf(orderNumber);
+                    console.log('获取快递单响应:', res);
+                    if (!res || !res.success || !res.pdfPath) { alert(res && res.message ? res.message : '未获取到pdfPath'); return; }
+                    const url = ensureFullOssUrl(res.pdfPath);
+                    console.log('下载URL:', url);
+                    const fileResp = await fetch(url);
+                    if (!fileResp.ok) { alert('下载PDF失败'); return; }
+                    const blob = await fileResp.blob();
+                    const base64 = await blobToBase64(blob);
+                    console.log('PDF base64长度:', base64.length);
+                    const r = await fetch('http://127.0.0.1:6789/printer/print/data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ data: base64, file_type: 'pdf', printer_name: printer_name })
+                    });
+                    const json = await r.json();
+                    console.log('打印接口响应:', json);
+                    if (!json.success) { alert(json.message || '打印任务提交失败'); return; }
+                    alert('打印任务已提交');
+                } catch (e) {
+                    console.error('处理失败', e);
+                    alert('处理失败');
+                }
+            }
+
+            function setMode(manual) {
+                manualMode = manual;
+                if (manual) {
+                    scanner.stop();
+                    input.disabled = false;
+                    input.placeholder = '请输入订单号后回车';
+                    input.focus();
+                } else {
+                    input.disabled = true;
+                    input.placeholder = '请扫码枪扫码输入';
+                    input.value = '';
+                    scanner.start();
+                }
+            }
+
             scanner.onScanResult(function(result) {
-                console.log('Scanned Order Number:', result);
-                const input = document.getElementById('scanner-input');
                 input.value = result;
+                processOrder(result);
             });
+
+            input.addEventListener('keypress', function(e) {
+                if (manualMode && e.key === 'Enter') {
+                    e.preventDefault();
+                    processOrder(input.value.trim());
+                }
+            });
+
+            checkbox.addEventListener('change', function() {
+                setMode(checkbox.checked);
+            });
+
+            setMode(false);
         };
     </script>
 </body>

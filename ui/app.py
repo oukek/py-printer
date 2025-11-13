@@ -101,6 +101,31 @@ class Api:
         login_html_path = os.path.join(os.path.dirname(__file__), 'login.html')
         webview.windows[0].load_url(login_html_path)
 
+    def get_waybill_pdf(self, order_number):
+        try:
+            if not os.path.exists(JWT_FILE):
+                return {'success': False, 'message': 'JWT file not found'}
+            with open(JWT_FILE, 'r') as f:
+                data = json.load(f)
+                jwt = data.get('token')
+            if not jwt:
+                return {'success': False, 'message': 'JWT token not found'}
+            params = {'orderNumber': order_number}
+            resp = requests.get('https://xlyn-api.ynxsl.top/erp/order/waybillPdf', headers={'Authorization': f'Bearer {jwt}'}, params=params)
+            try:
+                resp.raise_for_status()
+            except Exception:
+                pass
+            try:
+                j = resp.json()
+            except Exception:
+                j = {}
+            pdf_path = j.get('pdfPath') or (j.get('data') or {}).get('pdfPath')
+            if not pdf_path:
+                return {'success': False, 'message': j.get('msg') or '未获取到 pdfPath'}
+            return {'success': True, 'pdfPath': pdf_path}
+        except Exception as e:
+            return {'success': False, 'message': str(e)}
 def create_app(config_name=None):
     """应用工厂函数"""
     if config_name is None:
