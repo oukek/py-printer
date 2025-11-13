@@ -6,7 +6,6 @@ Flask应用配置文件
 
 import os
 
-
 class Config:
     """基础配置类"""
     

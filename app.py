@@ -12,7 +12,7 @@ import threading
 import time
 from flask import Flask, jsonify
 from flask_cors import CORS
-from config import config
+from core.config import config
 
 
 def create_app(config_name=None):

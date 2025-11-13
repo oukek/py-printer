@@ -20,26 +20,21 @@ datas += collect_data_files('flask')
 # 收集项目中的配置文件和其他数据文件
 datas += [
     (os.path.join(project_root, 'core/config.py'), 'core'),
+    (os.path.join(project_root, 'ui/login.html'), 'ui'),
+    (os.path.join(project_root, 'ui/success.html'), 'ui'),
 ]
 
 # 收集隐藏导入
 hiddenimports = []
-hiddenimports += [
-    'flask', 'flask_cors', 'PIL', 'fitz', 'psutil',
-    'werkzeug', 'jinja2', 'markupsafe', 'itsdangerous', 'click',
-    'blinker'
-]
+hiddenimports += ['flask', 'flask_cors', 'PIL', 'fitz', 'psutil']
 
 # Windows特定的隐藏导入
 if sys.platform == 'win32':
-    hiddenimports += [
-        'win32api', 'win32print', 'win32gui', 'win32con',
-        'pywintypes'
-    ]
+    hiddenimports += ['win32api', 'win32print', 'win32gui']
 
 # 分析配置
 a = Analysis(
-    ['app.py'],
+    ['ui/app.py'],
     pathex=[project_root],
     binaries=[],
     datas=datas,
@@ -57,14 +52,6 @@ a = Analysis(
         'IPython',
         'pytest',
         'unittest',
-        'doctest',
-        'pdb',
-        'turtle',
-        'curses',
-        'readline',
-        'antigravity',
-        'this',
-        'webbrowser'
     ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
