@@ -13,8 +13,10 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from core.config import config
+from utils.compress_utils import ImageCompressor
 
 import json
+import base64
 
 # --- JWT 文件路径 ---
 JWT_FILE = os.path.join(os.path.expanduser('~'), '.py_printer_jwt')
@@ -97,9 +99,14 @@ class Api:
             os.remove(JWT_FILE)
             print("JWT文件已删除")
         
-        # 重新加载登录页面
-        login_html_path = os.path.join(os.path.dirname(__file__), 'login.html')
-        webview.windows[0].load_url(login_html_path)
+        # 重新加载登录页面 (异步跳转，避免 JS 回调失败)
+        def _navigate():
+            import time
+            time.sleep(0.1)
+            login_html_path = os.path.join(os.path.dirname(__file__), 'login.html')
+            webview.windows[0].load_url(login_html_path)
+        
+        threading.Thread(target=_navigate).start()
 
     def get_waybill_pdf(self, order_number):
         try:
@@ -126,6 +133,61 @@ class Api:
             return {'success': True, 'pdfPath': pdf_path}
         except Exception as e:
             return {'success': False, 'message': str(e)}
+
+    def select_image(self):
+        """打开文件选择框选择图片"""
+        file_types = ('Image Files (*.jpg;*.jpeg;*.png)', 'All files (*.*)')
+        result = webview.windows[0].create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False, file_types=file_types)
+        if result:
+            return result[0]
+        return None
+
+    def compress_image_api(self, image_path, quality=100):
+        """压缩图片并返回原图和压缩图的 base64"""
+        try:
+            compressor = ImageCompressor()
+            # 压缩图片
+            res = compressor.compress(image_path, quality=quality)
+            if not res['success']:
+                return res
+
+            # 读取原图和压缩图并转为 base64
+            def get_base64(path):
+                with open(path, "rb") as image_file:
+                    encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+                    ext = os.path.splitext(path)[1].lower().replace('.', '')
+                    if ext == 'jpg': ext = 'jpeg'
+                    return f"data:image/{ext};base64,{encoded_string}"
+
+            res['original_base64'] = get_base64(image_path)
+            res['compressed_base64'] = get_base64(res['output_path'])
+
+            # 清理生成的压缩文件（如果需要的话，或者保留它，用户可能想保存）
+            # 这里我们保留它，让用户知道存在哪里了
+
+            return res
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
+    def goto_compress_page(self):
+        """跳转到压缩对比页面"""
+        def _navigate():
+            import time
+            time.sleep(0.1)
+            html_path = os.path.join(os.path.dirname(__file__), 'compress_compare.html')
+            webview.windows[0].load_url(html_path)
+        
+        threading.Thread(target=_navigate).start()
+
+    def goto_home_page(self):
+        """返回主页面"""
+        def _navigate():
+            import time
+            time.sleep(0.1)
+            html_path = os.path.join(os.path.dirname(__file__), 'success.html')
+            webview.windows[0].load_url(html_path)
+            
+        threading.Thread(target=_navigate).start()
 def create_app(config_name=None):
     """应用工厂函数"""
     if config_name is None:
@@ -158,11 +220,8 @@ def start_gui_app():
     """启动GUI应用"""
     api = Api()
     
-
-
-    # 验证JWT
-    user_info = api.get_user_info()
-    if user_info.get('code') == 0:
+    # 验证JWT (优化：只要本地有 JWT 文件，就直接进入主界面)
+    if os.path.exists(JWT_FILE):
         target_html = 'success.html'
         window_title = '打印机服务 - 主界面'
     else:

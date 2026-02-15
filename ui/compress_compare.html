@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>图片压缩对比</title>
+    <meta charset="UTF-8">
+    <style>
+        body, html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f5f5f7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            width: 100%;
+            padding: 20px 0;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+        }
+        .back-btn {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 5px 15px;
+            background-color: transparent;
+            color: #007aff;
+            border: 1px solid #007aff;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .container {
+            width: 90%;
+            max-width: 800px;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #005bb5;
+        }
+        button:disabled {
+            background-color: #d1d1d6;
+            cursor: not-allowed;
+        }
+        
+        /* 比较容器样式 */
+        .comparison-container {
+            position: relative;
+            width: 100%;
+            height: 400px; /* 固定高度，或者根据图片比例动态调整 */
+            background-color: #e5e5ea;
+            border-radius: 12px;
+            overflow: hidden;
+            display: none; /* 初始隐藏 */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .comparison-container img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        .img-before {
+            clip-path: inset(0 50% 0 0);
+        }
+        .img-after {
+            clip-path: inset(0 0 0 50%);
+        }
+        .slider {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            width: 4px;
+            background: white;
+            cursor: ew-resize;
+            z-index: 10;
+            transform: translateX(-50%);
+        }
+        .slider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 30px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .slider::before {
+            content: '↔';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 11;
+            color: #007aff;
+            font-weight: bold;
+        }
+
+        .info-panel {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 10px;
+            display: none;
+        }
+        .info-card {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .info-label {
+            font-size: 12px;
+            color: #8e8e93;
+            margin-bottom: 5px;
+        }
+        .info-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1c1c1e;
+        }
+        
+        .loading {
+            display: none;
+            color: #007aff;
+            font-weight: 500;
+        }
+
+        .label-tag {
+            position: absolute;
+            top: 10px;
+            padding: 5px 10px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            font-size: 12px;
+            border-radius: 4px;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .label-before { left: 10px; }
+        .label-after { right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="back-btn" onclick="goBack()">返回</button>
+        <h2 style="margin:0">TinyPNG 级别压缩对比</h2>
+    </div>
+
+    <div class="container">
+        <div class="controls">
+            <button id="select-btn">选择图片</button>
+            <div id="loading" class="loading">正在处理中...</div>
+            <div id="quality-control" style="display: flex; align-items: center; gap: 8px;">
+                <label style="font-size: 14px; color: #333;">质量:</label>
+                <input type="range" id="quality-range" min="1" max="100" value="100" style="width: 100px;">
+                <span id="quality-val" style="font-size: 14px; min-width: 25px;">100</span>
+            </div>
+        </div>
+
+        <div id="info-panel" class="info-panel">
+            <div class="info-card">
+                <div class="info-label">原始大小</div>
+                <div id="orig-size" class="info-value">-</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">压缩后大小</div>
+                <div id="comp-size" class="info-value">-</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">压缩率</div>
+                <div id="ratio" class="info-value" style="color: #34c759;">-</div>
+            </div>
+        </div>
+
+        <div id="comparison" class="comparison-container">
+            <div class="label-tag label-before">原图 (Before)</div>
+            <div class="label-tag label-after">压缩后 (After)</div>
+            
+            <img id="img-before" class="img-before" src="" alt="Before">
+            <img id="img-after" class="img-after" src="" alt="After">
+            
+            <div id="slider" class="slider"></div>
+        </div>
+        
+        <div id="file-path-info" style="font-size: 12px; color: #8e8e93; margin-top: 10px; width: 100%; word-break: break-all; text-align: center;"></div>
+    </div>
+
+    <script>
+        const selectBtn = document.getElementById('select-btn');
+        const loading = document.getElementById('loading');
+        const comparison = document.getElementById('comparison');
+        const imgBefore = document.getElementById('img-before');
+        const imgAfter = document.getElementById('img-after');
+        const slider = document.getElementById('slider');
+        const infoPanel = document.getElementById('info-panel');
+        const qualityRange = document.getElementById('quality-range');
+        const qualityVal = document.getElementById('quality-val');
+        
+        let currentImagePath = '';
+
+        qualityRange.oninput = function() {
+            qualityVal.textContent = this.value;
+        };
+
+        qualityRange.onchange = function() {
+            if (currentImagePath) {
+                processImage(currentImagePath);
+            }
+        };
+
+        function goBack() {
+            window.pywebview.api.goto_home_page();
+        }
+
+        selectBtn.onclick = async function() {
+            const path = await window.pywebview.api.select_image();
+            if (path) {
+                currentImagePath = path;
+                processImage(path);
+            }
+        };
+
+        async function processImage(path) {
+            loading.style.display = 'block';
+            selectBtn.disabled = true;
+            
+            const quality = parseInt(qualityRange.value);
+            const res = await window.pywebview.api.compress_image_api(path, quality);
+            
+            loading.style.display = 'none';
+            selectBtn.disabled = false;
+            
+            if (res.success) {
+                imgBefore.src = res.original_base64;
+                imgAfter.src = res.compressed_base64;
+                
+                document.getElementById('orig-size').textContent = res.original_size;
+                document.getElementById('comp-size').textContent = res.compressed_size;
+                document.getElementById('ratio').textContent = res.ratio;
+                document.getElementById('file-path-info').textContent = '已保存至: ' + res.output_path;
+                
+                comparison.style.display = 'block';
+                infoPanel.style.display = 'grid';
+                
+                // 重置滑块位置
+                updateSlider(50);
+            } else {
+                alert('压缩失败: ' + (res.error || res.message));
+            }
+        }
+
+        // 滑动条逻辑
+        let isResizing = false;
+
+        function updateSlider(percentage) {
+            percentage = Math.max(0, Math.min(100, percentage));
+            slider.style.left = percentage + '%';
+            imgBefore.style.clipPath = `inset(0 ${100 - percentage}% 0 0)`;
+            imgAfter.style.clipPath = `inset(0 0 0 ${percentage}%)`;
+        }
+
+        slider.onmousedown = () => isResizing = true;
+        window.onmouseup = () => isResizing = false;
+        window.onmousemove = (e) => {
+            if (!isResizing) return;
+            
+            const rect = comparison.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const percentage = (x / rect.width) * 100;
+            
+            updateSlider(percentage);
+        };
+
+        // 触摸支持
+        slider.ontouchstart = () => isResizing = true;
+        window.ontouchend = () => isResizing = false;
+        window.ontouchmove = (e) => {
+            if (!isResizing) return;
+            
+            const rect = comparison.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const percentage = (x / rect.width) * 100;
+            
+            updateSlider(percentage);
+        };
+    </script>
+</body>
+</html>

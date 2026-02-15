@@ -8,8 +8,6 @@
 import subprocess
 import platform
 from typing import List, Dict, Any, Optional, Tuple
-
-
 class CommandUtils:
     """命令行工具类"""
     
@@ -58,6 +56,10 @@ class CommandUtils:
         # 添加纸张大小参数
         if paper_size:
             cmd.extend(['-o', f'media={paper_size}'])
+            
+        # 添加缩放选项，确保图片充满页面
+        cmd.extend(['-o', 'fit-to-page'])
+        cmd.extend(['-o', 'scaling=100'])
             
         # 添加文件路径
         if file_path:

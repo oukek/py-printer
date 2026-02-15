@@ -180,7 +180,7 @@ class PrinterInfo:
         
         return standard_sizes.get(clean_name)
     
-    def _resize_image_for_printing(self, image: Image.Image, paper_width_mm: float, paper_height_mm: float, dpi: int = 300, margin_mm: float = 10) -> Image.Image:
+    def _resize_image_for_printing(self, image: Image.Image, paper_width_mm: float, paper_height_mm: float, dpi: int = 300, margin_mm: float = 2) -> Image.Image:
         """
         调整图片尺寸以适应可打印区域
         
@@ -189,19 +189,23 @@ class PrinterInfo:
             paper_width_mm: 纸张宽度（毫米）
             paper_height_mm: 纸张高度（毫米）
             dpi: 目标DPI
-            margin_mm: 边距（毫米）
+            margin_mm: 边距（毫米），默认为2mm
             
         Returns:
             调整后的图片
         """
         # 计算可打印区域（减去边距）
-        printable_width_mm = paper_width_mm - 2 * margin_mm
-        printable_height_mm = paper_height_mm - 2 * margin_mm
+        printable_width_mm = max(0, paper_width_mm - 2 * margin_mm)
+        printable_height_mm = max(0, paper_height_mm - 2 * margin_mm)
         
         # 将毫米转换为像素
         printable_width_px = int(printable_width_mm * dpi / 25.4)
         printable_height_px = int(printable_height_mm * dpi / 25.4)
         
+        # 避免除以零
+        if image.width == 0 or image.height == 0 or printable_width_px <= 0 or printable_height_px <= 0:
+            return image
+
         # 计算缩放比例
         width_ratio = printable_width_px / image.width
         height_ratio = printable_height_px / image.height
@@ -209,18 +213,15 @@ class PrinterInfo:
         # 选择较小的缩放比例，确保图片完全适应纸张
         scale_ratio = min(width_ratio, height_ratio)
         
-        # 如果图片已经比可打印区域小，不进行放大
-        if scale_ratio > 1:
-            scale_ratio = 1
-        
         # 计算新尺寸
         new_width = int(image.width * scale_ratio)
         new_height = int(image.height * scale_ratio)
         
         print(f"图片缩放信息:")
         print(f"  原始尺寸: {image.width}x{image.height} 像素")
-        print(f"  可打印区域: {printable_width_px}x{printable_height_px} 像素")
-        print(f"  缩放比例: {scale_ratio:.2f}")
+        print(f"  目标纸张: {paper_width_mm}x{paper_height_mm} mm (DPI: {dpi})")
+        print(f"  可打印区域: {printable_width_px}x{printable_height_px} 像素 (边距: {margin_mm}mm)")
+        print(f"  缩放比例: {scale_ratio:.4f}")
         print(f"  新尺寸: {new_width}x{new_height} 像素")
         
         # 缩放图片
@@ -342,7 +343,12 @@ class PrinterInfo:
             # 打开图像
             image = Image.open(image_path)
             
-            # 如果指定了纸张大小，进行图片缩放
+            # Windows 平台：将缩放逻辑延迟到 _print_image_windows 中，以便使用实际打印机 DPI
+            if PlatformUtils.is_windows():
+                return self._print_image_windows(image, printer_name, paper_size)
+            
+            # 非 Windows 平台（macOS/Linux）：
+            # 如果指定了纸张大小，进行图片缩放（使用 300 DPI 默认值）
             if paper_size and printer_name:
                 paper_dimensions = self.get_paper_dimensions(printer_name, paper_size)
                 if paper_dimensions:
@@ -355,9 +361,7 @@ class PrinterInfo:
                 else:
                     print("无法获取纸张尺寸，使用原始图片尺寸打印")
             
-            if PlatformUtils.is_windows():
-                return self._print_image_windows(image, printer_name, paper_size)
-            elif PlatformUtils.is_macos():
+            if PlatformUtils.is_macos():
                 # 对于macOS，需要保存缩放后的图片到临时文件
                 if paper_size and printer_name:
                     with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as temp_file:
@@ -429,33 +433,43 @@ class PrinterInfo:
             hDC.StartPage()
             
             # 获取打印机分辨率
-            # 使用常量值代替win32con，避免跨平台问题
             dpi_x = hDC.GetDeviceCaps(88)  # LOGPIXELSX = 88
             dpi_y = hDC.GetDeviceCaps(90)  # LOGPIXELSY = 90
             
+            # 如果指定了纸张大小，在打印前根据实际 DPI 进行缩放
+            if paper_size:
+                paper_dimensions = self.get_paper_dimensions(printer_name, paper_size)
+                if paper_dimensions:
+                    print(f"Windows 打印机实际 DPI: {dpi_x}x{dpi_y}")
+                    # 使用实际 DPI 进行缩放，边距设为 0 以防重复边距
+                    image = self._resize_image_for_printing(
+                        image, 
+                        paper_dimensions['width'], 
+                        paper_dimensions['height'],
+                        dpi=dpi_x,
+                        margin_mm=0
+                    )
+            
             # 获取打印机物理页面和可打印区域信息
             # 物理页面尺寸
-            physical_width = hDC.GetDeviceCaps(110)   # HORZRES = 110
-            physical_height = hDC.GetDeviceCaps(111)  # VERTRES = 111
+            phys_width = hDC.GetDeviceCaps(110)   # PHYSICALWIDTH = 110
+            phys_height = hDC.GetDeviceCaps(111)  # PHYSICALHEIGHT = 111
+            
+            # 实际可打印区域尺寸（像素）
+            printable_width = hDC.GetDeviceCaps(8)   # HORZRES = 8
+            printable_height = hDC.GetDeviceCaps(10)  # VERTRES = 10
             
             # 物理页面的左上角偏移（物理边距）
             physical_offset_x = hDC.GetDeviceCaps(112)  # PHYSICALOFFSETX = 112
             physical_offset_y = hDC.GetDeviceCaps(113)  # PHYSICALOFFSETY = 113
             
-            # 实际可打印区域尺寸（考虑物理边距）
-            printable_width = physical_width
-            printable_height = physical_height
-            
             print(f"打印区域信息:")
-            print(f"  物理页面尺寸: {physical_width}x{physical_height} 像素")
-            print(f"  物理边距偏移: ({physical_offset_x}, {physical_offset_y}) 像素")
+            print(f"  物理页面尺寸: {phys_width}x{phys_height} 像素")
             print(f"  可打印区域: {printable_width}x{printable_height} 像素")
+            print(f"  物理边距偏移: ({physical_offset_x}, {physical_offset_y}) 像素")
             
-            # 计算图片在打印区域的位置（居中）
-            img_width = image.width
-            img_height = image.height
-            
-            print(f"原始图片尺寸: {img_width}x{img_height} 像素")
+            # 更新图片尺寸
+            img_width, img_height = image.size
             
             # 如果图片比可打印区域大，按比例缩放
             if img_width > printable_width or img_height > printable_height:
@@ -464,19 +478,24 @@ class PrinterInfo:
                 scale = min(scale_x, scale_y)
                 img_width = int(img_width * scale)
                 img_height = int(img_height * scale)
-                print(f"缩放后图片尺寸: {img_width}x{img_height} 像素 (缩放比例: {scale:.2f})")
+                print(f"由于超出可打印区域，进行二次缩放: {img_width}x{img_height} 像素 (比例: {scale:.4f})")
             
-            # 计算打印位置：横向居中，垂直从上开始
-            # 横向居中：在可打印区域内居中，然后加上物理边距偏移
-            x = physical_offset_x + (printable_width - img_width) // 2
-            # 垂直从上开始：直接使用物理边距偏移作为起始位置
-            y = physical_offset_y
+            # 如果图片非常小（比如因为之前的 10mm 边距导致），且用户希望充满纸张
+            # 这里我们确保图片至少占据可打印区域的一定比例，或者根据需求拉伸
+            # 但在 _resize_image_for_printing 中我们已经允许放大了，所以这里主要处理居中
             
-            print(f"图片打印位置: ({x}, {y}) 像素 (横向居中，垂直从上开始)")
+            # 计算打印位置：在可打印区域内居中
+            # 注意：win32ui 的 draw 坐标是相对于可打印区域的，不需要手动加 physical_offset
+            x = (printable_width - img_width) // 2
+            y = 0 # 垂直从顶部开始
+            
+            print(f"图片打印位置 (相对于可打印区域): ({x}, {y})")
             
             # 打印图像
-            ImageWin.Dib(image).draw(hDC.GetHandleOutput(), 
-                                    (x, y, x + img_width, y + img_height))
+            # 使用 Dib 对象的 draw 方法
+            dib = ImageWin.Dib(image)
+            # draw 方法的参数是 (hdc, (x1, y1, x2, y2))
+            dib.draw(hDC.GetHandleOutput(), (x, y, x + img_width, y + img_height))
             
             # 结束打印
             hDC.EndPage()
