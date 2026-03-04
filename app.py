@@ -30,10 +30,12 @@ def create_app(config_name=None):
     from modules.app_module import app_bp
     from modules.printer_module import printer_bp
     from modules.printing_module import printing_bp
+    from modules.compress_module import compress_bp
     
     app.register_blueprint(app_bp, url_prefix='/app')
     app.register_blueprint(printer_bp, url_prefix='/printer')
     app.register_blueprint(printing_bp, url_prefix='/printing')
+    app.register_blueprint(compress_bp, url_prefix='/compress')
     
     # 根路径API说明
     @app.route('/')
@@ -66,6 +68,14 @@ def create_app(config_name=None):
                         "/printing/channel/create": "创建通道图 (POST)",
                         "/printing/image/info": "获取图像信息 (POST)",
                         "/printing/test": "测试印花模块 (GET)"
+                    }
+                },
+                "compress": {
+                    "prefix": "/compress",
+                    "description": "压缩模块",
+                    "endpoints": {
+                        "/compress/image": "压缩图像 (POST)",
+                        "/compress/test": "测试压缩模块 (GET)"
                     }
                 }
             }
@@ -123,6 +133,8 @@ def start_server_for_electron(host='localhost', port=None, config_name='default'
         print("API模块:")
         print("  应用模块: /app/*")
         print("  打印模块: /printer/*")
+        print("  印花模块: /printing/*")
+        print("  压缩模块: /compress/*")
         
         # 返回应用实例和端口号，供Electron使用
         return app_instance, port
