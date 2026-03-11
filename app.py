@@ -65,8 +65,8 @@ def create_app(config_name=None):
                     "prefix": "/printing",
                     "description": "印花模块",
                     "endpoints": {
-                        "/printing/channel/create": "创建通道图 (POST)",
                         "/printing/image/info": "获取图像信息 (POST)",
+                        "/printing/image/concatenate": "批量拼接图像 (POST)",
                         "/printing/test": "测试印花模块 (GET)"
                     }
                 },
