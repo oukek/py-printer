@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>批量拼接图片</title>
+    <meta charset="UTF-8">
+    <style>
+        body, html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f5f5f7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .header {
+            width: 100%;
+            padding: 20px 0;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+        }
+        .back-btn {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            padding: 5px 15px;
+            background-color: transparent;
+            color: #007aff;
+            border: 1px solid #007aff;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .step {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .step-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1c1c1e;
+        }
+        .directory-display {
+            padding: 12px;
+            background-color: #f2f2f7;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #3a3a3c;
+            word-break: break-all;
+            min-height: 20px;
+            border: 1px solid #d1d1d6;
+        }
+        button {
+            padding: 12px 24px;
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover {
+            background-color: #005bb5;
+            transform: translateY(-1px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            background-color: #d1d1d6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .secondary-btn {
+            background-color: #f2f2f7;
+            color: #007aff;
+            border: 1px solid #007aff;
+        }
+        .secondary-btn:hover {
+            background-color: #e5e5ea;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            width: 100%;
+            display: none;
+            text-align: center;
+            font-size: 14px;
+        }
+        .status.success {
+            display: block;
+            background-color: #e1f5fe;
+            color: #01579b;
+            border: 1px solid #b3e5fc;
+        }
+        .status.error {
+            display: block;
+            background-color: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        .loading {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007aff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="back-btn" onclick="goBack()">返回</button>
+        <h2 style="margin:0">批量拼接 TIFF 图片</h2>
+    </div>
+
+    <div class="container">
+        <div class="step">
+            <div class="step-title">第一步：选择包含 .tif 文件的目录</div>
+            <div id="dir-path" class="directory-display">未选择目录</div>
+            <button onclick="selectDir()" class="secondary-btn">选择目录</button>
+        </div>
+
+        <div style="width: 100%; height: 1px; background: #eee; margin: 10px 0;"></div>
+
+        <div class="step">
+            <div class="step-title">第二步：开始拼接</div>
+            <button id="start-btn" onclick="startConcatenate()" disabled>开始拼接所有 TIFF</button>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <div style="color: #007aff; font-weight: 500;">正在处理中，请稍候...</div>
+        </div>
+
+        <div id="status-msg" class="status"></div>
+    </div>
+
+    <script>
+        let selectedDir = '';
+
+        function goBack() {
+            window.pywebview.api.goto_home_page();
+        }
+
+        async function selectDir() {
+            const path = await window.pywebview.api.select_directory();
+            if (path) {
+                selectedDir = path;
+                document.getElementById('dir-path').textContent = path;
+                document.getElementById('start-btn').disabled = false;
+                hideStatus();
+            }
+        }
+
+        async function startConcatenate() {
+            if (!selectedDir) return;
+
+            const startBtn = document.getElementById('start-btn');
+            const loading = document.getElementById('loading');
+            
+            startBtn.disabled = true;
+            loading.style.display = 'flex';
+            hideStatus();
+
+            try {
+                const res = await window.pywebview.api.concatenate_images_in_dir(selectedDir);
+                loading.style.display = 'none';
+                startBtn.disabled = false;
+
+                if (res.success) {
+                    showStatus(res.message, 'success');
+                } else {
+                    showStatus(res.message, 'error');
+                }
+            } catch (e) {
+                loading.style.display = 'none';
+                startBtn.disabled = false;
+                showStatus('发生意外错误: ' + e, 'error');
+            }
+        }
+
+        function showStatus(msg, type) {
+            const statusEl = document.getElementById('status-msg');
+            statusEl.textContent = msg;
+            statusEl.className = 'status ' + type;
+        }
+
+        function hideStatus() {
+            const statusEl = document.getElementById('status-msg');
+            statusEl.style.display = 'none';
+        }
+    </script>
+</body>
+</html>

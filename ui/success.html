@@ -127,10 +127,15 @@
         <input type="text" id="scanner-input" placeholder="请扫码枪扫码输入" disabled style="width: 250px; padding: 10px; border-radius: 8px; border: 1px solid #d1d1d6; font-size: 16px; background-color: #f2f2f7; color: #1c1c1e; text-align: center;">
         <br>
         <br>
+        <button onclick="gotoConcatenate()">批量拼接 TIFF</button>
         <button onclick="gotoCompress()">图片压缩对比</button>
         <button onclick="logout()">登出</button>
     </div>
     <script>
+        function gotoConcatenate() {
+            window.pywebview.api.goto_concatenate_page();
+        }
+
         function gotoCompress() {
             window.pywebview.api.goto_compress_page();
         }

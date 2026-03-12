@@ -188,6 +188,67 @@ class Api:
             webview.windows[0].load_url(html_path)
             
         threading.Thread(target=_navigate).start()
+
+    def select_directory(self):
+        """打开文件夹选择框"""
+        result = webview.windows[0].create_file_dialog(webview.FileDialog.FOLDER)
+        if result:
+            return result[0]
+        return None
+
+    def concatenate_images_in_dir(self, directory):
+        """拼接指定目录下的所有 tif 文件"""
+        try:
+            from utils.image_utils import ImageProcessor
+            import glob
+            
+            # 查找目录下所有的 .tif 和 .tiff 文件 (忽略大小写)
+            file_paths = []
+            for ext in ["*.tif", "*.tiff", "*.TIF", "*.TIFF"]:
+                file_paths.extend(glob.glob(os.path.join(directory, ext)))
+            
+            # 去重并排序，保证拼接顺序
+            import re
+            def get_sort_key(path):
+                filename = os.path.basename(path)
+                # 匹配类似 -0.tif, -1.tiff 等带数字后缀的文件名
+                match = re.search(r'-(\d+)\.(?:tif|tiff)$', filename, re.IGNORECASE)
+                if match:
+                    # 返回 (0, 数字) 以保证按数字顺序排列，且优先于不带该模式的文件
+                    return (0, int(match.group(1)))
+                # 如果不匹配，返回 (1, 文件名) 降级为字典序排序
+                return (1, filename)
+
+            file_paths = sorted(list(set(file_paths)), key=get_sort_key)
+            
+            if not file_paths:
+                return {'success': False, 'message': '该目录下没有找到 .tif 或 .tiff 文件'}
+            
+            processor = ImageProcessor()
+            
+            result = processor.batch_concatenate_images(
+                file_paths=file_paths,
+                target_width=6614,
+                dpi=300
+            )
+            
+            if result.get('success'):
+                return {'success': True, 'message': result.get('message', '拼接成功'), 'output_dir': result.get('output_dir')}
+            else:
+                return {'success': False, 'message': result.get('error', '拼接失败')}
+                
+        except Exception as e:
+            return {'success': False, 'message': f'拼接过程出错: {str(e)}'}
+
+    def goto_concatenate_page(self):
+        """跳转到图片拼接页面"""
+        def _navigate():
+            import time
+            time.sleep(0.1)
+            html_path = os.path.join(os.path.dirname(__file__), 'concatenate_images.html')
+            webview.windows[0].load_url(html_path)
+        
+        threading.Thread(target=_navigate).start()
 def create_app(config_name=None):
     """应用工厂函数"""
     if config_name is None:
