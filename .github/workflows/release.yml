@@ -131,8 +131,8 @@ jobs:
       - name: Upload to OSS
         uses: charlieysx/aliyun-oss-website-action@master
         with:
-          accessKeyId: ${{ secrets.APP_ALIYUN_OSS_ACCESSKEY_ID }}
-          accessKeySecret: ${{ secrets.APP_ALIYUN_OSS_ACCESSKEY_SECRET }}
+          accessKeyId: ${{ secrets.ALIYUN_OSS_ACCESSKEY_ID }}
+          accessKeySecret: ${{ secrets.ALIYUN_OSS_ACCESSKEY_SECRET }}
           bucket: xljt-erp
           endpoint: oss-accelerate.aliyuncs.com
           folder: dist/upload
