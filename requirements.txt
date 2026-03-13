@@ -12,6 +12,7 @@ Pillow>=9.0.0
 PyMuPDF>=1.18.0
 numpy>=1.21.0
 tifffile>=2023.2.28
+imagecodecs>=2023.1.23
 
 # 可选：系统监控依赖（用于服务器状态接口）
 psutil>=5.9.0

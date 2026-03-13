@@ -27,8 +27,11 @@ hiddenimports = []
 hiddenimports += [
     'flask', 'flask_cors', 'PIL', 'fitz', 'psutil',
     'werkzeug', 'jinja2', 'markupsafe', 'itsdangerous', 'click',
-    'blinker'
+    'blinker', 'numpy', 'tifffile', 'imagecodecs'
 ]
+# 添加 imagecodecs 的子模块
+from PyInstaller.utils.hooks import collect_submodules
+hiddenimports += collect_submodules('imagecodecs')
 
 # Windows特定的隐藏导入
 if sys.platform == 'win32':
@@ -50,7 +53,6 @@ a = Analysis(
     excludes=[
         'tkinter',
         'matplotlib',
-        'numpy',
         'scipy',
         'pandas',
         'jupyter',

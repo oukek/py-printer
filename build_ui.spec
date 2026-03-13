@@ -22,11 +22,16 @@ datas += [
     (os.path.join(project_root, 'core/config.py'), 'core'),
     (os.path.join(project_root, 'ui/login.html'), 'ui'),
     (os.path.join(project_root, 'ui/success.html'), 'ui'),
+    (os.path.join(project_root, 'ui/compress_compare.html'), 'ui'),
+    (os.path.join(project_root, 'ui/concatenate_images.html'), 'ui'),
 ]
 
 # 收集隐藏导入
 hiddenimports = []
-hiddenimports += ['flask', 'flask_cors', 'PIL', 'fitz', 'psutil']
+hiddenimports += ['flask', 'flask_cors', 'PIL', 'fitz', 'psutil', 'numpy', 'tifffile', 'webview', 'requests', 'imagecodecs']
+# 添加 imagecodecs 的子模块
+from PyInstaller.utils.hooks import collect_submodules
+hiddenimports += collect_submodules('imagecodecs')
 
 # Windows特定的隐藏导入
 if sys.platform == 'win32':
@@ -45,7 +50,6 @@ a = Analysis(
     excludes=[
         'tkinter',
         'matplotlib',
-        'numpy',
         'scipy',
         'pandas',
         'jupyter',

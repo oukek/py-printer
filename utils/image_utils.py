@@ -14,8 +14,10 @@ Image.MAX_IMAGE_PIXELS = None
 import numpy as np
 try:
     import tifffile
+    import imagecodecs # 显式导入以确保打包时被包含
 except ImportError:
     tifffile = None
+    imagecodecs = None
 
 
 class ImageProcessor:
