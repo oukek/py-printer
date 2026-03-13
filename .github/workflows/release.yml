@@ -8,6 +8,7 @@ permissions:
 
 env:
   PYTHONUTF8: 1 # 强制 Python 在 Windows 上使用 UTF-8 编码，防止中文日志导致 UnicodeEncodeError
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # 解决 Node.js 20 弃用警告，强制使用 Node.js 24 运行 Actions
 
 jobs:
   # ----------------------------
@@ -80,8 +81,8 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Detected Version: $VERSION"
 
-      - name: Build with build_ui.py
-        run: python build_ui.py
+      - name: Build with build.py
+        run: python build.py
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
