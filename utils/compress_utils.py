@@ -6,6 +6,8 @@
 """
 
 import os
+import base64
+from io import BytesIO
 from PIL import Image
 
 
@@ -39,51 +41,17 @@ class ImageCompressor:
 
             # 打开图像
             img = Image.open(input_path)
-            img_format = img.format.upper() if img.format else ""
-            
-            # 获取原始大小
             original_size = os.path.getsize(input_path)
-
-            save_kwargs = {"optimize": True}
-
-            if img_format == "PNG":
-                # PNG 压缩逻辑
-                if png_quantize:
-                    # 模拟 TinyPNG: 针对原生 Pillow 环境优化的量化方案
-                    if img.mode != 'RGBA':
-                        img = img.convert('RGBA')
-                    
-                    # 尝试使用最高质量的 LIBIMAGEQUANT，如果不可用则使用高质量的原生适配方案
-                    try:
-                        # 优先尝试 LIBIMAGEQUANT (method=3)
-                        img = img.quantize(colors=256, method=getattr(Image, 'LIBIMAGEQUANT', 3), kmeans=30, dither=Image.FLOYDSTEINBERG)
-                    except (ValueError, Exception):
-                        # 如果 LIBIMAGEQUANT 不可用，改用 Image.ADAPTIVE 调色板转换
-                        # 这是原生 Pillow 处理渐变最细腻的方案，能有效减少“结块”感
-                        img = img.convert('P', palette=Image.ADAPTIVE, colors=256)
-                
-                img.save(output_path, "PNG", **save_kwargs)
-
-            elif img_format in ["JPEG", "JPG"]:
-                # JPG 压缩逻辑
-                # 开启渐进式 (progressive) 和重新计算哈夫曼表 (optimize)
-                # 禁用色度抽样 (subsampling=0) 以保持色彩鲜艳
-                save_kwargs["quality"] = quality
-                save_kwargs["progressive"] = True
-                save_kwargs["subsampling"] = 0
-                
-                # 转换为 RGB (JPG 不支持 Alpha 通道)
-                if img.mode != 'RGB':
-                    img = img.convert('RGB')
-                
-                img.save(output_path, "JPEG", **save_kwargs)
             
-            else:
-                # 其他格式直接优化保存
-                img.save(output_path, **save_kwargs)
+            # 执行压缩逻辑
+            result_io, img_format = ImageCompressor._process_compression(img, quality, png_quantize)
+            
+            # 保存到文件
+            with open(output_path, "wb") as f:
+                f.write(result_io.getvalue())
 
             # 获取压缩后大小
-            compressed_size = os.path.getsize(output_path)
+            compressed_size = len(result_io.getvalue())
             ratio = (1 - compressed_size / original_size) * 100
 
             return {
@@ -101,6 +69,98 @@ class ImageCompressor:
                 "success": False,
                 "error": f"压缩过程中发生错误: {str(e)}"
             }
+
+    @staticmethod
+    def compress_base64(image_base64, quality=100, png_quantize=True):
+        """
+        压缩 base64 图像并返回压缩后的 base64 数据
+        
+        Args:
+            image_base64: 原始图像的 base64 字符串（支持带 data:image/...;base64, 前缀或纯 base64）
+            quality: JPG 质量
+            png_quantize: PNG 是否量化
+            
+        Returns:
+            dict: 包含压缩后的 base64 数据和统计信息的字典
+        """
+        try:
+            # 处理 base64 前缀
+            header = ""
+            if "," in image_base64:
+                header, image_base64 = image_base64.split(",", 1)
+                header += ","
+            
+            # 解码 base64
+            image_bytes = base64.b64decode(image_base64)
+            original_size = len(image_bytes)
+            
+            # 载入图像
+            img = Image.open(BytesIO(image_bytes))
+            
+            # 执行压缩逻辑
+            result_io, img_format = ImageCompressor._process_compression(img, quality, png_quantize)
+            
+            # 编码为 base64
+            compressed_bytes = result_io.getvalue()
+            compressed_base64 = base64.b64encode(compressed_bytes).decode('utf-8')
+            compressed_size = len(compressed_bytes)
+            ratio = (1 - compressed_size / original_size) * 100
+            
+            # 如果原先有前缀，根据压缩后的格式更新前缀（如果格式发生变化）
+            if header:
+                ext = img_format.lower()
+                if ext == "jpeg": ext = "jpg"
+                header = f"data:image/{ext};base64,"
+
+            return {
+                "success": True,
+                "compressed_base64": header + compressed_base64,
+                "original_size": f"{original_size / 1024:.2f} KB",
+                "compressed_size": f"{compressed_size / 1024:.2f} KB",
+                "ratio": f"{ratio:.2f}%",
+                "format": img_format,
+                "message": "压缩成功"
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Base64 压缩过程中发生错误: {str(e)}"
+            }
+
+    @staticmethod
+    def _process_compression(img, quality=100, png_quantize=True):
+        """内部通用的核心压缩处理逻辑"""
+        img_format = img.format.upper() if img.format else "PNG"
+        if img_format not in ["PNG", "JPEG", "JPG"]:
+            # 如果无法识别格式，默认尝试按原有格式保存
+            img_format = "PNG"
+
+        save_kwargs = {"optimize": True}
+        output_io = BytesIO()
+
+        if img_format == "PNG":
+            if png_quantize:
+                if img.mode != 'RGBA':
+                    img = img.convert('RGBA')
+                try:
+                    img = img.quantize(colors=256, method=getattr(Image, 'LIBIMAGEQUANT', 3), kmeans=30, dither=Image.FLOYDSTEINBERG)
+                except (ValueError, Exception):
+                    img = img.convert('P', palette=Image.ADAPTIVE, colors=256)
+            img.save(output_io, "PNG", **save_kwargs)
+
+        elif img_format in ["JPEG", "JPG"]:
+            save_kwargs["quality"] = quality
+            save_kwargs["progressive"] = True
+            save_kwargs["subsampling"] = 0
+            if img.mode != 'RGB':
+                img = img.convert('RGB')
+            img.save(output_io, "JPEG", **save_kwargs)
+            img_format = "JPEG"
+        
+        else:
+            img.save(output_io, format=img_format, **save_kwargs)
+
+        return output_io, img_format
 
 
 if __name__ == "__main__":

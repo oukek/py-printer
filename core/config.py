@@ -22,8 +22,8 @@ class Config:
     CORS_ORIGINS = "*"
     
     # 应用信息
-    APP_NAME = "打印机服务API"
-    APP_VERSION = "2.0.0"
+    APP_NAME = "XLOS服务"
+    APP_VERSION = "1.0.3"
 
 
 class DevelopmentConfig(Config):

@@ -70,7 +70,6 @@ def compress_image():
             "success": False
         }), 500
 
-
 @compress_bp.route('/test', methods=['GET'])
 def test_compress():
     """测试压缩模块"""
@@ -86,6 +85,57 @@ def test_compress():
     except Exception as e:
         return jsonify({
             "error": "压缩模块测试失败",
+            "message": str(e),
+            "success": False
+        }), 500
+
+@compress_bp.route('/image/base64', methods=['POST'])
+def compress_image_base64():
+    """
+    压缩Base64编码的图像
+    参数:
+        base64_str: Base64编码的图像字符串
+        quality: JPG 压缩质量 (1-100)，默认 100
+        png_quantize: 是否对 PNG 进行颜色量化，默认 True
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({
+                "error": "请求体不能为空",
+                "success": False
+            }), 400
+        
+        # 获取参数
+        base64_str = data.get('base64_str')
+        quality = data.get('quality', 100)
+        png_quantize = data.get('png_quantize', True)
+        
+        if not base64_str:
+            return jsonify({
+                "error": "缺少base64_str参数",
+                "success": False
+            }), 400
+        
+        # 处理压缩
+        result = compressor.compress_base64(
+            base64_str=base64_str,
+            quality=quality,
+            png_quantize=png_quantize
+        )
+        
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify({
+                "error": result.get('error', '压缩失败'),
+                "success": False
+            }), 500
+        
+    except Exception as e:
+        return jsonify({
+            "error": "压缩Base64图像失败",
             "message": str(e),
             "success": False
         }), 500

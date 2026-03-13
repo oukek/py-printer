@@ -75,6 +75,7 @@ def create_app(config_name=None):
                     "description": "压缩模块",
                     "endpoints": {
                         "/compress/image": "压缩图像 (POST)",
+                        "/compress/image/base64": "压缩Base64图像 (POST)",
                         "/compress/test": "测试压缩模块 (GET)"
                     }
                 }

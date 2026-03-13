@@ -169,6 +169,14 @@ class Api:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    def compress_base64_api(self, image_base64, quality=100):
+        """直接压缩 base64 数据并返回"""
+        try:
+            compressor = ImageCompressor()
+            return compressor.compress_base64(image_base64, quality=quality)
+        except Exception as e:
+            return {'success': False, 'error': str(e)}
+
     def goto_compress_page(self):
         """跳转到压缩对比页面"""
         def _navigate():
