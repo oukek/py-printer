@@ -94,7 +94,7 @@ def compress_image_base64():
     """
     压缩Base64编码的图像
     参数:
-        base64_str: Base64编码的图像字符串
+        image_base64: Base64编码的图像字符串
         quality: JPG 压缩质量 (1-100)，默认 100
         png_quantize: 是否对 PNG 进行颜色量化，默认 True
     """
@@ -108,19 +108,19 @@ def compress_image_base64():
             }), 400
         
         # 获取参数
-        base64_str = data.get('base64_str')
+        image_base64 = data.get('image_base64')
         quality = data.get('quality', 100)
         png_quantize = data.get('png_quantize', True)
         
-        if not base64_str:
+        if not image_base64:
             return jsonify({
-                "error": "缺少base64_str参数",
+                "error": "缺少image_base64参数",
                 "success": False
             }), 400
         
         # 处理压缩
         result = compressor.compress_base64(
-            base64_str=base64_str,
+            image_base64=image_base64,
             quality=quality,
             png_quantize=png_quantize
         )

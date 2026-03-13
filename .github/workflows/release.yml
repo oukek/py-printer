@@ -3,6 +3,9 @@ name: Build and Release
 on:
   workflow_dispatch:
 
+env:
+  PYTHONUTF8: 1 # 强制 Python 在 Windows 上使用 UTF-8 编码，防止中文日志导致 UnicodeEncodeError
+
 jobs:
   build:
     name: Build on ${{ matrix.os }}
