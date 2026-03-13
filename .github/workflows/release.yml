@@ -3,22 +3,21 @@ name: Build and Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 env:
   PYTHONUTF8: 1 # 强制 Python 在 Windows 上使用 UTF-8 编码，防止中文日志导致 UnicodeEncodeError
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [macos-latest, windows-latest]
-        include:
-          - os: macos-latest
-            artifact_name: py-server-macos
-          - os: windows-latest
-            artifact_name: py-server-windows.exe
-
+  # ----------------------------
+  # 1. Build jobs
+  # ----------------------------
+  build-windows:
+    name: Build (Windows)
+    runs-on: windows-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,7 +38,6 @@ jobs:
         id: get_version
         shell: bash
         run: |
-          # 从 core/config.py 中提取版本号
           VERSION=$(grep "APP_VERSION =" core/config.py | cut -d'"' -f2)
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "Detected Version: $VERSION"
@@ -47,15 +45,56 @@ jobs:
       - name: Build with build_ui.py
         run: python build_ui.py
 
-      - name: Upload Artifact
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact_name }}
-          path: dist/${{ matrix.artifact_name }}
+          name: build-artifacts-windows-latest
+          path: dist/py-server-windows.exe
 
-  release:
-    name: Create Release
-    needs: build
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Get Version
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=$(grep "APP_VERSION =" core/config.py | cut -d'"' -f2)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected Version: $VERSION"
+
+      - name: Build with build_ui.py
+        run: python build_ui.py
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts-macos-latest
+          path: dist/py-server-macos
+
+  # ----------------------------
+  # 2. Upload to OSS and GitHub Release
+  # ----------------------------
+  upload-oss-and-release:
+    name: Upload to OSS and Release
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -66,22 +105,50 @@ jobs:
         shell: bash
         run: |
           VERSION=$(grep "APP_VERSION =" core/config.py | cut -d'"' -f2)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download Artifacts
+      - name: Download build artifacts (Windows)
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: build-artifacts-windows-latest
+          path: dist/windows
 
-      - name: Create Release
+      - name: Download build artifacts (macOS)
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts-macos-latest
+          path: dist/macos
+
+      - name: Prepare upload folder
+        run: |
+          mkdir -p dist/upload
+          cp dist/windows/py-server-windows.exe dist/upload/
+          cp dist/macos/py-server-macos dist/upload/
+          echo "Files ready to upload:"
+          ls -R dist/upload
+
+      - name: Upload to OSS
+        uses: charlieysx/aliyun-oss-website-action@master
+        with:
+          accessKeyId: ${{ secrets.APP_ALIYUN_OSS_ACCESSKEY_ID }}
+          accessKeySecret: ${{ secrets.APP_ALIYUN_OSS_ACCESSKEY_SECRET }}
+          bucket: xljt-erp
+          endpoint: oss-accelerate.aliyuncs.com
+          folder: dist/upload
+          prefix: pyserver/${{ env.VERSION }}
+          skipSetting: true
+          onlyUpload: true
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ needs.build.outputs.version || steps.get_version.outputs.VERSION }}
-          name: Release v${{ needs.build.outputs.version || steps.get_version.outputs.VERSION }}
+          tag_name: v${{ env.VERSION }}
+          name: Release v${{ env.VERSION }}
           draft: false
           prerelease: false
           files: |
-            artifacts/py-server-macos/py-server-macos
-            artifacts/py-server-windows.exe/py-server-windows.exe
+            dist/upload/py-server-windows.exe
+            dist/upload/py-server-macos
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
