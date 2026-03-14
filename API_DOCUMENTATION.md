@@ -92,7 +92,7 @@
   - `success`: 是否成功
   - `message`: 包含处理结果的描述信息
   - `output_dir`: 合成文件保存的目录 (原图目录下的 `concatenate/`)
-- **说明**: 每 `batch_size` 张图自动合并为一个长图（每两张图之间自动留出 0.3 厘米间距）。如果提供了 `batch_id`，输出文件名将为 `batch_id-1.tif` 等；否则默认为 `concatenate-1.tif`。使用 Adobe Deflate + Predictor 高强度压缩。
+- **说明**: 每 `batch_size` 张图自动合并为一个长图（每两张图之间自动留出 0.3 厘米间距）。如果提供了 `batch_id`，输出文件名将为 `batch_id-1.tif` 等；否则默认为 `concatenate-1.tif`。输出文件固定为 **CMYK** 颜色模式（适合 T 恤印花）。使用 Adobe Deflate + Predictor 高强度压缩。
 
 ---
 
