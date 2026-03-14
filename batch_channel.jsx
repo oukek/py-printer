@@ -1,6 +1,6 @@
 #target photoshop
 
-function processFile(file) {
+function processFile(file, outputFolder) {
     // 1. 打开文档
     var doc = open(file);
 
@@ -24,19 +24,18 @@ function processFile(file) {
     try {
         app.doAction("白墨通道", "印花");
     } catch(e) {
-        alert("执行动作失败！请确保 Photoshop 中已存在名为 '印花' 的动作组和名为 '白墨通道' 的动作。\n错误详情: " + e + "\n文件: " + file.name);
+        alert("执行动作失败！请确保 Photoshop 中已存在名为 '印花' 的动作组 and 名为 '白墨通道' 的动作。\n错误详情: " + e + "\n文件: " + file.name);
         doc.close(SaveOptions.DONOTSAVECHANGES);
         return false;
     }
 
-    // 4. 保存为 TIFF (格式: channel/原文件名.tif)
-    var channelFolder = new Folder(file.parent + "/channel");
-    if (!channelFolder.exists) {
-        channelFolder.create();
+    // 4. 保存为 TIFF
+    if (!outputFolder.exists) {
+        outputFolder.create();
     }
     
     var newName = file.name.replace(/\.(png|tif|tiff)$/i, "") + ".tif";
-    var saveFile = new File(channelFolder.fsName + "/" + newName);
+    var saveFile = new File(outputFolder.fsName + "/" + newName);
 
     var opt = new TiffSaveOptions();
     opt.layers = false;             // 不保存图层，减小体积
@@ -54,11 +53,15 @@ function processFile(file) {
 }
 
 function main(){
-    // 1. 选择目录
+    // 1. 选择源目录
     var folder = Folder.selectDialog("选择包含 PNG 或 TIF 图片的文件夹");
     if(!folder) return;
 
-    // 2. 获取目录下所有的 PNG 和 TIF 文件
+    // 2. 选择保存目录
+    var outputFolder = Folder.selectDialog("选择通道图保存的目录");
+    if(!outputFolder) return;
+
+    // 3. 获取目录下所有的 PNG 和 TIF 文件
     var files = folder.getFiles(/\.(png|tif|tiff)$/i);
     
     if(files.length == 0) {
@@ -69,11 +72,11 @@ function main(){
     var successCount = 0;
     var errorCount = 0;
 
-    // 3. 循环处理
+    // 4. 循环处理
     for(var i = 0; i < files.length; i++) {
         var file = files[i];
         if(file instanceof File) {
-            if(processFile(file)) {
+            if(processFile(file, outputFolder)) {
                 successCount++;
             } else {
                 errorCount++;
@@ -81,7 +84,7 @@ function main(){
         }
     }
 
-    // 4. 完成提示
+    // 5. 完成提示
     var msg = "处理完成！\n" +
               "成功: " + successCount + " 个文件\n";
     if(errorCount > 0) {

@@ -204,7 +204,7 @@ class Api:
             return result[0]
         return None
 
-    def concatenate_images_in_dir(self, directory):
+    def concatenate_images_in_dir(self, directory, batch_size=4, batch_id=None):
         """拼接指定目录下的所有 tif 文件"""
         try:
             from utils.image_utils import ImageProcessor
@@ -237,7 +237,9 @@ class Api:
             result = processor.batch_concatenate_images(
                 file_paths=file_paths,
                 target_width=6614,
-                dpi=300
+                dpi=300,
+                batch_size=batch_size,
+                batch_id=batch_id
             )
             
             if result.get('success'):

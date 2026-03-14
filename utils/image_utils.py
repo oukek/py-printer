@@ -59,20 +59,21 @@ class ImageProcessor:
         except Exception:
             return None
     
-    def batch_concatenate_images(self, file_paths, output_path=None, target_width=6614, dpi=300):
+    def batch_concatenate_images(self, file_paths, target_width=6614, dpi=300, batch_size=4, batch_id=None):
         """
-        批量读取图片并每 4 张一组垂直拼接，保存到同级目录下的 concatenate 文件夹中
+        批量读取图片并每 N 张一组垂直拼接，保存到同级目录下的 concatenate 文件夹中
         
         Args:
             file_paths: 图片文件路径列表
-            output_path: (已弃用) 为了兼容保留，逻辑将自动确定输出路径
             target_width: 目标宽度，默认为 6614
             dpi: 打印分辨率，默认为 300
+            batch_size: 每组图片的数量，默认为 4
+            batch_id: 批次号，用于作为输出文件名的前缀
             
         Returns:
             dict: 包含处理结果的字典
         """
-        print(f"开始批量分组合并任务: 总文件数={len(file_paths)}, 目标宽度={target_width}, DPI={dpi}")
+        print(f"开始批量分组合并任务: 总文件数={len(file_paths)}, 批次号={batch_id}, 每组数量={batch_size}, 目标宽度={target_width}, DPI={dpi}")
         if not file_paths:
             print("警告: 文件列表为空，取消拼接任务")
             return {"success": False, "error": "文件列表为空"}
@@ -89,8 +90,7 @@ class ImageProcessor:
             os.makedirs(target_output_dir)
             print(f"创建输出目录: {target_output_dir}")
 
-        # 2. 每 4 张图一组进行拆分
-        batch_size = 4
+        # 2. 每 N 张图一组进行拆分
         batches = [file_paths[i:i + batch_size] for i in range(0, len(file_paths), batch_size)]
         print(f"共拆分为 {len(batches)} 组进行处理")
 
@@ -98,13 +98,18 @@ class ImageProcessor:
         total_processed_files = 0
 
         for batch_idx, batch_files in enumerate(batches):
-            current_output_path = os.path.join(target_output_dir, f"concatenate-{batch_idx + 1}.tif")
+            prefix = f"{batch_id}-" if batch_id else "concatenate-"
+            current_output_path = os.path.join(target_output_dir, f"{prefix}{batch_idx + 1}.tif")
             print(f"\n--- 正在处理第 {batch_idx + 1}/{len(batches)} 组 ---")
             
             try:
                 # 预处理当前组
                 image_configs = []
                 total_height = 0
+                
+                # 计算间距 (0.3cm) 对应的像素值
+                gap_px = int(0.3 * dpi / 2.54)
+                
                 for path in batch_files:
                     if not os.path.exists(path):
                         print(f"警告: 文件不存在，跳过: {path}")
@@ -126,6 +131,10 @@ class ImageProcessor:
                             "offset_x": offset_x
                         })
                         total_height += new_h
+                
+                # 加上图片之间的间距
+                if len(image_configs) > 1:
+                    total_height += gap_px * (len(image_configs) - 1)
 
                 if not image_configs:
                     print(f"警告: 第 {batch_idx + 1} 组没有有效的图片")
@@ -146,7 +155,7 @@ class ImageProcessor:
                 
                 # 2. 逐个将图片填入 memmap 数组中
                 curr_y = 0
-                for config in image_configs:
+                for i, config in enumerate(image_configs):
                     print(f"  拼接图片: {os.path.basename(config['path'])}")
                     with Image.open(config["path"]) as img:
                         if img.mode != 'RGBA':
@@ -161,6 +170,10 @@ class ImageProcessor:
                         # 写入 memmap 的对应切片区域
                         memmap_array[curr_y:curr_y+config["new_size"][1], x_start:x_end, :] = img_np
                         curr_y += config["new_size"][1]
+                        
+                        # 如果不是最后一张，则加上间距
+                        if i < len(image_configs) - 1:
+                            curr_y += gap_px
                 
                 # 刷新并关闭临时映射
                 memmap_array.flush()

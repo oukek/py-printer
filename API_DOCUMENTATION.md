@@ -86,11 +86,13 @@
   - `file_paths`: (Array, 必填) 图片绝对路径列表
   - `target_width`: (Integer, 默认 6614) 目标宽度
   - `dpi`: (Integer, 默认 300) 分辨率
+  - `batch_size`: (Integer, 默认 4) 每组图片的数量
+  - `batch_id`: (String, 可选) 批次号，作为输出文件名的前缀
 - **返回**:
   - `success`: 是否成功
   - `message`: 包含处理结果的描述信息
   - `output_dir`: 合成文件保存的目录 (原图目录下的 `concatenate/`)
-- **说明**: 每 4 张图自动合并为一个长图，使用 Adobe Deflate + Predictor 高强度压缩。
+- **说明**: 每 `batch_size` 张图自动合并为一个长图（每两张图之间自动留出 0.3 厘米间距）。如果提供了 `batch_id`，输出文件名将为 `batch_id-1.tif` 等；否则默认为 `concatenate-1.tif`。使用 Adobe Deflate + Predictor 高强度压缩。
 
 ---
 

@@ -74,6 +74,8 @@ def concatenate_images():
         output_path = data.get('output_path')
         target_width = data.get('target_width', 6614)
         dpi = data.get('dpi', 300)
+        batch_size = data.get('batch_size', 4)
+        batch_id = data.get('batch_id')
         
         if not file_paths:
             return jsonify({
@@ -86,7 +88,9 @@ def concatenate_images():
             file_paths=file_paths,
             output_path=output_path,
             target_width=target_width,
-            dpi=dpi
+            dpi=dpi,
+            batch_size=batch_size,
+            batch_id=batch_id
         )
         
         if result.get('success'):
