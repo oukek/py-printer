@@ -61,7 +61,7 @@ class ImageProcessor:
     
     def batch_concatenate_images(self, file_paths, output_path=None, target_width=6614, dpi=300, batch_size=4, batch_id=None):
         """
-        批量读取图片并每 N 张一组垂直拼接，保存到同级目录下的 concatenate 文件夹中 (固定 CMYK 格式)
+        批量读取图片并每 N 张一组垂直拼接，保存到同级目录下的 concatenate 文件夹中 (固定 RGBA 格式)
         
         Args:
             file_paths: 图片文件路径列表
@@ -74,7 +74,7 @@ class ImageProcessor:
         Returns:
             dict: 包含处理结果的字典
         """
-        print(f"开始批量分组合并任务: 总文件数={len(file_paths)}, 批次号={batch_id}, 每组数量={batch_size}, 模式=CMYK, 目标宽度={target_width}, DPI={dpi}")
+        print(f"开始批量分组合并任务: 总文件数={len(file_paths)}, 批次号={batch_id}, 每组数量={batch_size}, 模式=RGBA, 目标宽度={target_width}, DPI={dpi}")
         if not file_paths:
             print("警告: 文件列表为空，取消拼接任务")
             return {"success": False, "error": "文件列表为空"}
@@ -145,8 +145,8 @@ class ImageProcessor:
                 temp_tif_path = current_output_path + ".tmp"
                 print(f"  创建临时缓存文件: {temp_tif_path}")
                 
-                # 固定为 CMYK 模式，4 个通道
-                photometric = 'cmyk'
+                # 固定为 RGBA 模式，4 个通道
+                photometric = 'rgb'
                 num_channels = 4
                 
                 # 使用 memmap 创建一个巨大的全 0 数组，映射到磁盘文件
@@ -163,9 +163,9 @@ class ImageProcessor:
                 for i, config in enumerate(image_configs):
                     print(f"  拼接图片: {os.path.basename(config['path'])}")
                     with Image.open(config["path"]) as img:
-                        # 转换颜色模式为 CMYK
-                        if img.mode != 'CMYK':
-                            img = img.convert('CMYK')
+                        # 转换颜色模式为 RGBA
+                        if img.mode != 'RGBA':
+                            img = img.convert('RGBA')
                         
                         if img.size != config["new_size"]:
                             img = img.resize(config["new_size"], Image.Resampling.LANCZOS)
@@ -236,7 +236,7 @@ class ImageProcessor:
 
     def draw_sprite_by_layout(self, sprite_layout, width, height, dpi=300, output_path=None):
         """
-        根据布局绘制雪碧图，并保存为 CMYK TIFF
+        根据布局绘制雪碧图，并保存为 RGBA TIFF
         
         Args:
             sprite_layout: 布局数组，每个元素包含 {x, y, width, height, rotated, meta}
@@ -257,15 +257,14 @@ class ImageProcessor:
         # 1. 准备参数
         sharp_width = int(round(width))
         sharp_height = int(round(height))
-        num_channels = 4  # CMYK
-        photometric = 'cmyk'
+        num_channels = 4  # RGBA
+        photometric = 'rgb'
         
         # 2. 创建临时 memmap 文件
         temp_tif_path = (output_path if output_path else "temp_sprite.tif") + ".tmp"
         
         try:
-            # 使用 memmap 创建一个全 0 数组，映射到磁盘文件 (背景透明在 CMYK 中通常是全 0)
-            # 注意：CMYK 的 0,0,0,0 通常是白色或无墨，取决于打印机
+            # 使用 memmap 创建一个全 0 数组 (RGBA 全 0 代表透明)
             memmap_array = tifffile.memmap(
                 temp_tif_path,
                 shape=(sharp_height, sharp_width, num_channels),
@@ -274,8 +273,7 @@ class ImageProcessor:
                 bigtiff=True
             )
             
-            # 初始化为全 0 (在 CMYK 中通常代表白色/无墨，如果是 (0,0,0,0))
-            # 某些情况下 0,0,0,0 可能不是预期的背景，但这里遵循 Node 逻辑
+            # 初始化为全 0
             memmap_array[:] = 0
 
             # 3. 逐个绘制布局项
@@ -287,14 +285,12 @@ class ImageProcessor:
                         print(f"警告: 无法加载图片，索引 {i}")
                         continue
                     
-                    # 转换颜色模式为 CMYK
-                    if img.mode != 'CMYK':
-                        img = img.convert('CMYK')
+                    # 确保是 RGBA
+                    if img.mode != 'RGBA':
+                        img = img.convert('RGBA')
                     
                     # 处理旋转
                     if layout.get('rotated', False):
-                        # 旋转 90 度 (逆时针 270 = 顺时针 90)
-                        # 在 Packing 逻辑中，rotated=true 意味着原图的长宽互换
                         img = img.rotate(270, expand=True)
                     
                     # 调整大小
