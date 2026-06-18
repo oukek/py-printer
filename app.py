@@ -10,6 +10,9 @@ import sys
 import socket
 import threading
 import time
+import json
+import urllib.error
+import urllib.request
 from flask import Flask, jsonify
 from flask_cors import CORS
 from core.config import config
@@ -31,11 +34,13 @@ def create_app(config_name=None):
     from modules.printer_module import printer_bp
     from modules.printing_module import printing_bp
     from modules.compress_module import compress_bp
+    from modules.fingerprint_module import fingerprint_bp
     
     app.register_blueprint(app_bp, url_prefix='/app')
     app.register_blueprint(printer_bp, url_prefix='/printer')
     app.register_blueprint(printing_bp, url_prefix='/printing')
     app.register_blueprint(compress_bp, url_prefix='/compress')
+    app.register_blueprint(fingerprint_bp, url_prefix='/fingerprint')
     
     # 根路径API说明
     @app.route('/')
@@ -78,6 +83,27 @@ def create_app(config_name=None):
                         "/compress/image/base64": "压缩Base64图像 (POST)",
                         "/compress/test": "测试压缩模块 (GET)"
                     }
+                },
+                "fingerprint": {
+                    "prefix": "/fingerprint",
+                    "description": "指纹识别模块",
+                    "endpoints": {
+                        "/fingerprint/device/count": "获取设备数量 (GET)",
+                        "/fingerprint/device/status": "获取设备打开状态 (GET)",
+                        "/fingerprint/device/open": "打开设备 (POST)",
+                        "/fingerprint/device/close": "关闭设备 (POST)",
+                        "/fingerprint/capture": "采集指纹 (POST)",
+                        "/fingerprint/enroll": "录入指纹 (POST)",
+                        "/fingerprint/enroll/events": "流式录入指纹 (GET, SSE)",
+                        "/fingerprint/identify": "识别指纹 (POST)",
+                        "/fingerprint/match": "比对指纹模板 (POST)",
+                        "/fingerprint/templates/add": "添加模板 (POST)",
+                        "/fingerprint/templates/load": "批量加载模板 (POST)",
+                        "/fingerprint/templates/delete": "删除模板 (POST)",
+                        "/fingerprint/templates/clear": "清空模板 (POST)",
+                        "/fingerprint/templates/merge": "合并模板 (POST)",
+                        "/fingerprint/light": "控制设备灯光 (POST)"
+                    }
                 }
             }
         })
@@ -111,6 +137,31 @@ def find_available_port(start_port=6789, max_attempts=100):
         except OSError:
             continue
     raise RuntimeError(f"无法在 {start_port}-{start_port + max_attempts - 1} 范围内找到可用端口")
+
+
+def _get_json(url, timeout=0.3):
+    """使用标准库获取 JSON，避免启动前依赖 requests。"""
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            body = response.read().decode('utf-8')
+        return json.loads(body)
+    except (OSError, ValueError, urllib.error.URLError):
+        return None
+
+
+def find_running_server(host='localhost', start_port=6789, max_attempts=100, config_name='default'):
+    """查找端口范围内已经启动的本服务实例。"""
+    expected_name = getattr(config[config_name], 'APP_NAME', None)
+
+    for candidate_port in range(start_port, start_port + max_attempts):
+        info = _get_json(f"http://{host}:{candidate_port}/app/info")
+        if not isinstance(info, dict):
+            continue
+
+        if info.get('success') is True and info.get('name') == expected_name:
+            return candidate_port
+
+    return None
 
 
 # 全局变量保存应用实例
@@ -150,6 +201,14 @@ def start_server(host='localhost', port=None, output_port=False, config_name='de
     global app_instance, server_thread
     
     try:
+        if port is None:
+            running_port = find_running_server(host=host, config_name=config_name)
+            if running_port is not None:
+                print(f"检测到已有服务正在运行: http://{host}:{running_port}")
+                print(f"PORT:{running_port}")
+                sys.stdout.flush()
+                return
+
         app_instance, actual_port = start_server_for_electron(host, port, config_name)
         
         if output_port:

@@ -23,7 +23,7 @@ class Config:
     
     # 应用信息
     APP_NAME = "XLOS服务"
-    APP_VERSION = "1.0.4"
+    APP_VERSION = "1.0.5"
 
 
 class DevelopmentConfig(Config):

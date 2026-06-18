@@ -125,7 +125,150 @@
 
 ---
 
-## 5. 统一响应格式
+## 5. 指纹识别模块 (`/fingerprint`)
+
+### 获取设备数量
+- **路径**: `/fingerprint/device/count`
+- **方法**: `GET`
+- **返回**:
+  - `count`: 已连接的指纹设备数量
+
+### 获取设备状态
+- **路径**: `/fingerprint/device/status`
+- **方法**: `GET`
+- **返回**:
+  - `opened`: 当前服务是否已打开指纹设备
+  - `serialNumber`: 设备序列号
+  - `width`: 指纹图像宽度
+  - `height`: 指纹图像高度
+
+### 打开设备
+- **路径**: `/fingerprint/device/open`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `index`: (Integer, 默认 0) 设备索引
+- **返回**:
+  - `serialNumber`: 设备序列号
+  - `width`: 指纹图像宽度
+  - `height`: 指纹图像高度
+
+### 关闭设备
+- **路径**: `/fingerprint/device/close`
+- **方法**: `POST`
+
+### 采集指纹
+- **路径**: `/fingerprint/capture`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `timeout_ms`: (Integer, 默认 10000) 等待手指按压的超时时间
+- **返回**:
+  - `templateBase64`: 指纹模板 Base64
+  - `imageBase64`: 灰度指纹图像原始字节 Base64
+  - `width`: 图像宽度
+  - `height`: 图像高度
+
+### 录入指纹
+- **路径**: `/fingerprint/enroll`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `fid`: (Integer, 可选) 指纹 ID。提供后会把合并后的模板加入内存识别库
+  - `sample_count`: (Integer, 默认 3) 采样次数，ZKFP2 固定要求 3 次
+  - `timeout_ms`: (Integer, 默认 10000) 每次采集超时时间
+- **说明**: 连续采集同一根手指 3 次并合并为注册模板。
+
+### 流式录入指纹
+- **路径**: `/fingerprint/enroll/events`
+- **方法**: `GET`
+- **类型**: Server-Sent Events (`text/event-stream`)
+- **查询参数**:
+  - `fid`: (Integer, 可选) 指纹 ID。提供后会把合并后的模板加入内存识别库
+  - `sample_count`: (Integer, 默认 3) 采样次数，ZKFP2 固定要求 3 次
+  - `timeout_ms`: (Integer, 默认 10000) 每次采集超时时间
+- **事件**:
+  - `started`: 录入开始
+  - `captured`: 每次采集成功后推送，包含 `step`、`total`、`capture`
+  - `completed`: 三次采集并合并模板完成
+  - `error`: 录入失败
+- **captured 事件示例**:
+  ```json
+  {
+    "success": true,
+    "step": 1,
+    "total": 3,
+    "capture": {
+      "templateBase64": "...",
+      "imageBase64": "...",
+      "width": 256,
+      "height": 360
+    }
+  }
+  ```
+- **completed 事件示例**:
+  ```json
+  {
+    "success": true,
+    "message": "指纹录入成功",
+    "fid": 1001,
+    "templateBase64": "...",
+    "templateLength": 2048,
+    "captures": []
+  }
+  ```
+
+### 识别指纹
+- **路径**: `/fingerprint/identify`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `template_base64`: (String, 可选) 指定要识别的模板。不传则现场采集
+  - `timeout_ms`: (Integer, 默认 10000) 现场采集超时时间
+  - `min_score`: (Integer, 默认 1) 最低匹配分数，小于该值时 `matched` 为 `false`
+- **返回**:
+  - `fid`: 命中的指纹 ID，未命中时通常为 0
+  - `score`: 匹配分数
+  - `matched`: 是否匹配成功
+  - `capture`: 现场采集时返回采集结果
+- **业务轮询建议**:
+  ```json
+  {
+    "timeout_ms": 2500,
+    "min_score": 1
+  }
+  ```
+  业务端收到响应后间隔 300-500ms 发起下一次识别；识别成功后建议冷却 1.5-3 秒，避免同一根手指一直按着时重复上报。
+
+### 1:1 比对
+- **路径**: `/fingerprint/match`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `template1_base64`: (String, 必填) 第一个模板
+  - `template2_base64`: (String, 必填) 第二个模板
+- **返回**:
+  - `score`: 比对分数
+
+### 模板管理
+- **添加模板**: `POST /fingerprint/templates/add`
+  - `fid`: (Integer, 必填) 指纹 ID
+  - `template_base64`: (String, 必填) 指纹模板
+- **批量加载模板**: `POST /fingerprint/templates/load`
+  - `templates`: (Array, 必填) 模板列表，格式为 `[{ "fid": 1, "template_base64": "..." }]`
+  - `clear_existing`: (Boolean, 默认 false) 是否先清空 SDK 内存识别库
+- **删除模板**: `POST /fingerprint/templates/delete`
+  - `fid`: (Integer, 必填) 指纹 ID
+- **清空模板**: `POST /fingerprint/templates/clear`
+- **合并模板**: `POST /fingerprint/templates/merge`
+  - `templates_base64`: (Array, 必填) 长度为 3 的模板数组
+  - `fid`: (Integer, 可选) 指定后加入内存识别库
+
+### 控制灯光
+- **路径**: `/fingerprint/light`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `color`: `white` / `green` / `red`，默认 `green`
+  - `duration`: 持续秒数，默认 `0.5`
+
+---
+
+## 6. 统一响应格式
 
 ### 成功响应
 ```json

@@ -20,6 +20,7 @@ datas += collect_data_files('flask')
 # 收集项目中的配置文件和其他数据文件
 datas += [
     (os.path.join(project_root, 'core/config.py'), 'core'),
+    (os.path.join(project_root, 'utils/pyzkfp/dll/libzkfpcsharp.dll'), 'pyzkfp/dll'),
 ]
 
 # 收集隐藏导入
@@ -27,7 +28,9 @@ hiddenimports = []
 hiddenimports += [
     'flask', 'flask_cors', 'PIL', 'fitz', 'psutil',
     'werkzeug', 'jinja2', 'markupsafe', 'itsdangerous', 'click',
-    'blinker', 'numpy', 'tifffile', 'imagecodecs'
+    'blinker', 'numpy', 'tifffile', 'imagecodecs',
+    'pythonnet', 'clr', 'utils.pyzkfp', 'utils.pyzkfp.zkfp2',
+    'utils.pyzkfp.bridge'
 ]
 # 添加 imagecodecs 的子模块
 from PyInstaller.utils.hooks import collect_submodules

@@ -272,10 +272,14 @@ def create_app(config_name=None):
     from modules.app_module import app_bp
     from modules.printer_module import printer_bp
     from modules.printing_module import printing_bp
+    from modules.compress_module import compress_bp
+    from modules.fingerprint_module import fingerprint_bp
     
     app.register_blueprint(app_bp, url_prefix='/app')
     app.register_blueprint(printer_bp, url_prefix='/printer')
     app.register_blueprint(printing_bp, url_prefix='/printing')
+    app.register_blueprint(compress_bp, url_prefix='/compress')
+    app.register_blueprint(fingerprint_bp, url_prefix='/fingerprint')
     
     @app.route('/')
     def index():

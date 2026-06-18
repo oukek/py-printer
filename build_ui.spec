@@ -24,11 +24,16 @@ datas += [
     (os.path.join(project_root, 'ui/success.html'), 'ui'),
     (os.path.join(project_root, 'ui/compress_compare.html'), 'ui'),
     (os.path.join(project_root, 'ui/concatenate_images.html'), 'ui'),
+    (os.path.join(project_root, 'utils/pyzkfp/dll/libzkfpcsharp.dll'), 'pyzkfp/dll'),
 ]
 
 # 收集隐藏导入
 hiddenimports = []
-hiddenimports += ['flask', 'flask_cors', 'PIL', 'fitz', 'psutil', 'numpy', 'tifffile', 'webview', 'requests', 'imagecodecs']
+hiddenimports += [
+    'flask', 'flask_cors', 'PIL', 'fitz', 'psutil', 'numpy', 'tifffile',
+    'webview', 'requests', 'imagecodecs', 'pythonnet', 'clr',
+    'utils.pyzkfp', 'utils.pyzkfp.zkfp2', 'utils.pyzkfp.bridge'
+]
 # 添加 imagecodecs 的子模块
 from PyInstaller.utils.hooks import collect_submodules
 hiddenimports += collect_submodules('imagecodecs')
