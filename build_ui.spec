@@ -25,6 +25,7 @@ datas += [
     (os.path.join(project_root, 'ui/compress_compare.html'), 'ui'),
     (os.path.join(project_root, 'ui/concatenate_images.html'), 'ui'),
     (os.path.join(project_root, 'utils/pyzkfp/dll/libzkfpcsharp.dll'), 'pyzkfp/dll'),
+    (os.path.join(project_root, 'utils/pyzkfp/setup.exe'), 'pyzkfp'),
 ]
 
 # 收集隐藏导入

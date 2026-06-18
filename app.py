@@ -90,6 +90,8 @@ def create_app(config_name=None):
                     "endpoints": {
                         "/fingerprint/device/count": "获取设备数量 (GET)",
                         "/fingerprint/diagnostics": "检测指纹 SDK/驱动环境 (GET)",
+                        "/fingerprint/installer/ensure": "检测并按需启动指纹驱动安装程序 (POST)",
+                        "/fingerprint/installer/run": "启动指纹驱动安装程序 (POST)",
                         "/fingerprint/device/status": "获取设备打开状态 (GET)",
                         "/fingerprint/device/open": "打开设备 (POST)",
                         "/fingerprint/device/close": "关闭设备 (POST)",

@@ -127,6 +127,63 @@
 
 ## 5. 指纹识别模块 (`/fingerprint`)
 
+### 业务接入流程
+
+推荐业务端按下面顺序接入：
+
+1. **启动本地服务**
+   - 业务端可以每次启动时都尝试启动 `py-server-windows.exe --output-port`。
+   - 服务自身会检测是否已有实例运行；如果已有实例，会输出已有 `PORT:<端口>` 并退出，不会重复启动多个服务。
+
+2. **检测并按需安装指纹环境**
+   - 调用 `POST /fingerprint/installer/ensure`。
+   - 如果 SDK 环境可用，接口返回 `ready=true`，不会弹安装程序。
+   - 如果 SDK 环境不可用，服务会自动启动打包内置的 `setup.exe`；Windows 下默认会弹 UAC 授权窗口。
+   - 安装完成后，建议业务端重新调用 `/fingerprint/diagnostics` 或重启本地服务再继续。
+
+3. **打开指纹设备**
+   - 调用 `POST /fingerprint/device/open`。
+   - 打开成功后返回设备序列号和图像宽高。
+
+4. **加载业务数据库中的指纹模板**
+   - 调用 `POST /fingerprint/templates/load`。
+   - SDK 的识别库是内存库，服务进程重启或设备关闭后需要重新加载。
+   - 建议启动时传 `clear_existing=true`，把业务数据库里的模板全量加载到 SDK 内存识别库。
+
+5. **录入指纹**
+   - 推荐使用 `GET /fingerprint/enroll/events`。
+   - 它是 SSE 事件流，会在每次采集成功后推送灰度图和当前次数，三次完成后返回最终模板。
+   - 业务端收到 `completed` 事件后，把最终 `templateBase64` 保存到业务数据库。
+   - 如果录入时传了 `fid`，当前 SDK 内存库会自动加入该模板。
+
+6. **日常识别**
+   - 推荐业务端轮询调用 `POST /fingerprint/identify`。
+   - 每次请求等待一次手指采集并返回识别结果。
+   - 建议参数为 `timeout_ms=2500`，每次响应后间隔 `300-500ms` 再发下一次；识别成功后冷却 `1.5-3s`，避免同一根手指一直按着重复上报。
+
+### 启动服务与单实例
+
+命令行启动：
+
+```powershell
+.\py-server-windows.exe --output-port
+```
+
+如果没有服务运行，输出示例：
+
+```text
+PORT:6789
+```
+
+如果已有服务运行，输出示例：
+
+```text
+检测到已有服务正在运行: http://localhost:6789
+PORT:6789
+```
+
+业务端只需要读取 `PORT:<端口>`，后续请求都打到这个端口即可。
+
 ### 检测指纹环境
 - **路径**: `/fingerprint/diagnostics`
 - **方法**: `GET`
@@ -139,6 +196,48 @@
   - `sdkAvailable`: SDK 是否初始化成功
   - `deviceCount`: 已连接设备数量
   - `error`: 失败时返回错误类型、信息和安装提示
+
+### 启动指纹驱动安装程序
+- **路径**: `/fingerprint/installer/run`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `elevated`: (Boolean, 默认 true) Windows 下是否请求管理员权限启动安装程序
+- **说明**: 启动打包内置的 `setup.exe`。如果 `elevated=true`，Windows 会弹出 UAC 授权窗口；安装过程由安装程序自身完成。
+
+### 检测并按需安装指纹环境
+- **路径**: `/fingerprint/installer/ensure`
+- **方法**: `POST`
+- **参数 (JSON)**:
+  - `elevated`: (Boolean, 默认 true) Windows 下是否请求管理员权限启动安装程序
+- **说明**: 推荐业务端启动后调用一次。服务会先执行环境检测；如果 `sdkAvailable=true`，不会启动安装程序；如果 SDK 不可用且内置 `setup.exe` 存在，则自动启动安装程序。
+- **请求示例**:
+  ```json
+  {
+    "elevated": true
+  }
+  ```
+- **环境可用响应示例**:
+  ```json
+  {
+    "success": true,
+    "message": "指纹环境可用，无需安装",
+    "result": {
+      "ready": true,
+      "installStarted": false
+    }
+  }
+  ```
+- **环境不可用时响应示例**:
+  ```json
+  {
+    "success": true,
+    "message": "指纹环境不可用，已尝试启动安装程序",
+    "result": {
+      "ready": false,
+      "installStarted": true
+    }
+  }
+  ```
 
 ### 获取设备数量
 - **路径**: `/fingerprint/device/count`
@@ -164,6 +263,12 @@
   - `serialNumber`: 设备序列号
   - `width`: 指纹图像宽度
   - `height`: 指纹图像高度
+- **请求示例**:
+  ```json
+  {
+    "index": 0
+  }
+  ```
 
 ### 关闭设备
 - **路径**: `/fingerprint/device/close`
@@ -227,6 +332,29 @@
     "captures": []
   }
   ```
+- **前端示例**:
+  ```javascript
+  const source = new EventSource(
+    "http://localhost:6789/fingerprint/enroll/events?fid=1001&timeout_ms=10000"
+  );
+
+  source.addEventListener("captured", (event) => {
+    const data = JSON.parse(event.data);
+    console.log(`第 ${data.step}/${data.total} 次采集成功`);
+    console.log(data.capture.imageBase64);
+  });
+
+  source.addEventListener("completed", (event) => {
+    const data = JSON.parse(event.data);
+    console.log("最终模板", data.templateBase64);
+    source.close();
+  });
+
+  source.addEventListener("error", (event) => {
+    console.error(event.data);
+    source.close();
+  });
+  ```
 
 ### 识别指纹
 - **路径**: `/fingerprint/identify`
@@ -248,6 +376,26 @@
   }
   ```
   业务端收到响应后间隔 300-500ms 发起下一次识别；识别成功后建议冷却 1.5-3 秒，避免同一根手指一直按着时重复上报。
+- **响应示例**:
+  ```json
+  {
+    "success": true,
+    "message": "指纹识别完成",
+    "result": {
+      "fid": 1001,
+      "score": 87,
+      "matched": true,
+      "minScore": 1,
+      "timeoutMs": 2500,
+      "capture": {
+        "templateBase64": "...",
+        "imageBase64": "...",
+        "width": 256,
+        "height": 360
+      }
+    }
+  }
+  ```
 
 ### 1:1 比对
 - **路径**: `/fingerprint/match`
@@ -265,6 +413,18 @@
 - **批量加载模板**: `POST /fingerprint/templates/load`
   - `templates`: (Array, 必填) 模板列表，格式为 `[{ "fid": 1, "template_base64": "..." }]`
   - `clear_existing`: (Boolean, 默认 false) 是否先清空 SDK 内存识别库
+- **批量加载请求示例**:
+  ```json
+  {
+    "clear_existing": true,
+    "templates": [
+      {
+        "fid": 1001,
+        "template_base64": "..."
+      }
+    ]
+  }
+  ```
 - **删除模板**: `POST /fingerprint/templates/delete`
   - `fid`: (Integer, 必填) 指纹 ID
 - **清空模板**: `POST /fingerprint/templates/clear`

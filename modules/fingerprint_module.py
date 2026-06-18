@@ -58,6 +58,8 @@ def test_fingerprint():
         result["endpoints"] = {
             "/fingerprint/device/count": "获取设备数量 (GET)",
             "/fingerprint/diagnostics": "检测指纹 SDK/驱动环境 (GET)",
+            "/fingerprint/installer/ensure": "检测并按需启动指纹驱动安装程序 (POST)",
+            "/fingerprint/installer/run": "启动指纹驱动安装程序 (POST)",
             "/fingerprint/device/status": "获取设备打开状态 (GET)",
             "/fingerprint/device/open": "打开设备 (POST)",
             "/fingerprint/device/close": "关闭设备 (POST)",
@@ -79,6 +81,32 @@ def test_fingerprint():
 def get_diagnostics():
     """检测指纹 SDK 运行环境和设备数量"""
     result = fingerprint_service.diagnostics()
+    return _result_response(result)
+
+
+@fingerprint_bp.route('/installer/ensure', methods=['POST'])
+def ensure_installer():
+    """
+    检测指纹环境，不可用时自动启动内置指纹驱动安装程序
+    参数:
+        elevated: 是否请求管理员权限，默认 True
+    """
+    data = _json_data()
+    elevated = _body_bool(data, "elevated", "elevated", True)
+    result = fingerprint_service.ensure_runtime(elevated=elevated)
+    return _result_response(result)
+
+
+@fingerprint_bp.route('/installer/run', methods=['POST'])
+def run_installer():
+    """
+    启动内置指纹驱动安装程序
+    参数:
+        elevated: 是否请求管理员权限，默认 True
+    """
+    data = _json_data()
+    elevated = _body_bool(data, "elevated", "elevated", True)
+    result = fingerprint_service.run_installer(elevated=elevated)
     return _result_response(result)
 
 

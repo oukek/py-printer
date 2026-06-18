@@ -10,10 +10,19 @@ bridge instance and serializes access to it for HTTP requests.
 import threading
 import importlib.util
 import os
+import subprocess
+import sys
 from typing import Any, Dict, Iterator, Optional
 
 from .pyzkfp.bridge import FingerprintBridge, _b64_encode
 from .pyzkfp.zkfp2 import ZKFP2, _dll_path
+
+
+def _installer_path() -> str:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, "pyzkfp", "setup.exe")
+    package_dir = os.path.dirname(os.path.realpath(__file__))
+    return os.path.join(package_dir, "pyzkfp", "setup.exe")
 
 
 class FingerprintService:
@@ -66,8 +75,7 @@ class FingerprintService:
     def diagnostics(self) -> Dict[str, Any]:
         """Check whether the fingerprint SDK runtime appears usable."""
         dll_dir = _dll_path()
-        package_dir = os.path.dirname(os.path.realpath(__file__))
-        setup_path = os.path.join(package_dir, "pyzkfp", "setup.exe")
+        setup_path = _installer_path()
         dll_path = os.path.join(dll_dir, "libzkfpcsharp.dll")
 
         result = {
@@ -121,6 +129,77 @@ class FingerprintService:
                     pass
 
         return self._success(result, "获取指纹环境检测结果成功")
+
+    def run_installer(self, elevated: bool = True) -> Dict[str, Any]:
+        """Launch the bundled ZKFP installer."""
+        setup_path = _installer_path()
+        if not os.path.exists(setup_path):
+            return {
+                "success": False,
+                "error": "未找到指纹安装程序",
+                "message": f"setup.exe 不存在: {setup_path}",
+            }
+
+        try:
+            if os.name == "nt" and elevated:
+                import ctypes
+                result = ctypes.windll.shell32.ShellExecuteW(
+                    None,
+                    "runas",
+                    setup_path,
+                    "",
+                    None,
+                    1,
+                )
+                if result <= 32:
+                    raise RuntimeError(f"启动安装程序失败，ShellExecuteW 返回: {result}")
+                return self._success({
+                    "started": True,
+                    "elevated": True,
+                    "installerPath": setup_path,
+                }, "指纹安装程序已启动")
+
+            process = subprocess.Popen([setup_path], shell=False)
+            return self._success({
+                "started": True,
+                "elevated": False,
+                "pid": process.pid,
+                "installerPath": setup_path,
+            }, "指纹安装程序已启动")
+        except Exception as exc:
+            return self._failure("启动指纹安装程序失败", exc)
+
+    def ensure_runtime(self, elevated: bool = True) -> Dict[str, Any]:
+        """Run diagnostics and launch the installer only when the SDK is unavailable."""
+        diagnostics = self.diagnostics()
+        diagnostic_result = diagnostics.get("result") or {}
+
+        if diagnostic_result.get("sdkAvailable"):
+            return self._success({
+                "ready": True,
+                "installStarted": False,
+                "diagnostics": diagnostic_result,
+            }, "指纹环境可用，无需安装")
+
+        if not diagnostic_result.get("installerExists"):
+            return {
+                "success": False,
+                "error": "未找到指纹安装程序",
+                "message": "指纹环境不可用，且未找到内置 setup.exe。",
+                "result": {
+                    "ready": False,
+                    "installStarted": False,
+                    "diagnostics": diagnostic_result,
+                },
+            }
+
+        install_result = self.run_installer(elevated=elevated)
+        return self._success({
+            "ready": False,
+            "installStarted": bool(install_result.get("success")),
+            "diagnostics": diagnostic_result,
+            "installer": install_result,
+        }, "指纹环境不可用，已尝试启动安装程序")
 
     def load_templates(self, templates, clear_existing: bool = False) -> Dict[str, Any]:
         """Load business-owned templates into the SDK in-memory database."""

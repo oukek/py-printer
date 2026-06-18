@@ -21,6 +21,7 @@ datas += collect_data_files('flask')
 datas += [
     (os.path.join(project_root, 'core/config.py'), 'core'),
     (os.path.join(project_root, 'utils/pyzkfp/dll/libzkfpcsharp.dll'), 'pyzkfp/dll'),
+    (os.path.join(project_root, 'utils/pyzkfp/setup.exe'), 'pyzkfp'),
 ]
 
 # 收集隐藏导入
