@@ -127,6 +127,19 @@
 
 ## 5. 指纹识别模块 (`/fingerprint`)
 
+### 检测指纹环境
+- **路径**: `/fingerprint/diagnostics`
+- **方法**: `GET`
+- **说明**: 检测 `pythonnet`、`libzkfpcsharp.dll`、内置安装程序 `setup.exe` 是否存在，并尝试初始化 ZKFP SDK 获取设备数量。
+- **返回**:
+  - `pythonnetAvailable`: 是否可加载 pythonnet
+  - `clrAvailable`: 是否可加载 CLR Bridge
+  - `sdkDllExists`: 是否找到 `libzkfpcsharp.dll`
+  - `installerExists`: 是否找到内置 `setup.exe`
+  - `sdkAvailable`: SDK 是否初始化成功
+  - `deviceCount`: 已连接设备数量
+  - `error`: 失败时返回错误类型、信息和安装提示
+
 ### 获取设备数量
 - **路径**: `/fingerprint/device/count`
 - **方法**: `GET`

@@ -89,6 +89,7 @@ def create_app(config_name=None):
                     "description": "指纹识别模块",
                     "endpoints": {
                         "/fingerprint/device/count": "获取设备数量 (GET)",
+                        "/fingerprint/diagnostics": "检测指纹 SDK/驱动环境 (GET)",
                         "/fingerprint/device/status": "获取设备打开状态 (GET)",
                         "/fingerprint/device/open": "打开设备 (POST)",
                         "/fingerprint/device/close": "关闭设备 (POST)",

@@ -57,6 +57,7 @@ def test_fingerprint():
     if result.get("success"):
         result["endpoints"] = {
             "/fingerprint/device/count": "获取设备数量 (GET)",
+            "/fingerprint/diagnostics": "检测指纹 SDK/驱动环境 (GET)",
             "/fingerprint/device/status": "获取设备打开状态 (GET)",
             "/fingerprint/device/open": "打开设备 (POST)",
             "/fingerprint/device/close": "关闭设备 (POST)",
@@ -71,6 +72,13 @@ def test_fingerprint():
             "/fingerprint/templates/clear": "清空内存库模板 (POST)",
             "/fingerprint/light": "控制设备灯光 (POST)",
         }
+    return _result_response(result)
+
+
+@fingerprint_bp.route('/diagnostics', methods=['GET'])
+def get_diagnostics():
+    """检测指纹 SDK 运行环境和设备数量"""
+    result = fingerprint_service.diagnostics()
     return _result_response(result)
 
 
