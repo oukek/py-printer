@@ -25,6 +25,19 @@ def _installer_path() -> str:
     return os.path.join(package_dir, "pyzkfp", "setup.exe")
 
 
+def _module_available(module_name: str) -> bool:
+    module = sys.modules.get(module_name)
+    if module is not None:
+        return True
+
+    try:
+        return importlib.util.find_spec(module_name) is not None
+    except (ImportError, ValueError):
+        # pythonnet 的 clr 模块在某些场景下已加载但 __spec__ 为 None，
+        # 这时 find_spec() 会抛 ValueError，不应让诊断接口直接 500。
+        return module_name in sys.modules
+
+
 def _shell_execute_error_details(code: int) -> Dict[str, str]:
     error_map = {
         0: {
@@ -172,8 +185,8 @@ class FingerprintService:
         dll_path = os.path.join(dll_dir, "libzkfpcsharp.dll")
 
         result = {
-            "pythonnetAvailable": importlib.util.find_spec("pythonnet") is not None,
-            "clrAvailable": importlib.util.find_spec("clr") is not None,
+            "pythonnetAvailable": _module_available("pythonnet"),
+            "clrAvailable": _module_available("clr"),
             "sdkDllExists": os.path.exists(dll_path),
             "sdkDllPath": dll_path,
             "installerExists": os.path.exists(setup_path),
