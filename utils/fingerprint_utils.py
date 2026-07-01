@@ -25,6 +25,76 @@ def _installer_path() -> str:
     return os.path.join(package_dir, "pyzkfp", "setup.exe")
 
 
+def _shell_execute_error_details(code: int) -> Dict[str, str]:
+    error_map = {
+        0: {
+            "type": "ShellExecuteError",
+            "message": "Windows 无法启动安装程序，系统资源可能不足。",
+            "hint": "请关闭部分程序后重试，或直接手动运行 setup.exe。",
+        },
+        2: {
+            "type": "FileNotFoundError",
+            "message": "未找到 setup.exe 安装程序文件。",
+            "hint": "请确认安装包已完整打包，或检查 setup.exe 是否被杀毒软件隔离。",
+        },
+        3: {
+            "type": "PathNotFoundError",
+            "message": "安装程序所在路径不存在。",
+            "hint": "请检查程序解压目录是否完整，或重新安装当前应用。",
+        },
+        5: {
+            "type": "AccessDeniedError",
+            "message": "没有权限启动安装程序，可能被系统策略阻止，或用户取消了 UAC 授权。",
+            "hint": "请以管理员身份运行当前程序，或手动右键以管理员身份运行 setup.exe。",
+        },
+        8: {
+            "type": "OutOfMemoryError",
+            "message": "系统内存不足，无法启动安装程序。",
+            "hint": "请释放内存后重试。",
+        },
+        26: {
+            "type": "ShareError",
+            "message": "无法共享访问安装程序文件。",
+            "hint": "请确认 setup.exe 未被其他进程占用。",
+        },
+        27: {
+            "type": "AssociationIncompleteError",
+            "message": "安装程序的文件关联信息不完整，无法执行。",
+            "hint": "请尝试手动运行 setup.exe，或重新安装当前应用。",
+        },
+        28: {
+            "type": "DDETimeoutError",
+            "message": "启动安装程序时等待系统响应超时。",
+            "hint": "请稍后重试，或手动运行 setup.exe。",
+        },
+        29: {
+            "type": "DDEFailureError",
+            "message": "Windows 在启动安装程序时发生通信错误。",
+            "hint": "请稍后重试，或手动运行 setup.exe。",
+        },
+        30: {
+            "type": "DDEBusyError",
+            "message": "Windows 正忙，暂时无法启动安装程序。",
+            "hint": "请稍后重试。",
+        },
+        31: {
+            "type": "NoAssociationError",
+            "message": "系统无法识别 setup.exe 的执行方式。",
+            "hint": "请检查系统环境，或手动双击运行 setup.exe。",
+        },
+        32: {
+            "type": "DllNotFoundError",
+            "message": "启动安装程序所需的系统组件缺失。",
+            "hint": "请检查系统运行库是否完整，或换一台机器验证。",
+        },
+    }
+    return error_map.get(code, {
+        "type": "ShellExecuteError",
+        "message": f"Windows 启动安装程序失败，ShellExecuteW 返回码: {code}",
+        "hint": "请检查系统权限、UAC 授权窗口和 setup.exe 文件状态。",
+    })
+
+
 class FingerprintService:
     """Thread-safe wrapper around the pyzkfp bridge."""
 
@@ -50,6 +120,29 @@ class FingerprintService:
             "message": str(exc),
             "type": exc.__class__.__name__,
         }
+
+    @staticmethod
+    def _failure_result(
+        error: str,
+        message: str,
+        error_type: str = "RuntimeError",
+        result: Optional[Dict[str, Any]] = None,
+        hint: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        response = {
+            "success": False,
+            "error": error,
+            "message": message,
+            "type": error_type,
+        }
+        if result is not None:
+            response["result"] = result
+        if hint:
+            response["hint"] = hint
+        if details:
+            response["details"] = details
+        return response
 
     def call(self, command: str, params: Optional[Dict[str, Any]] = None, message: str = "操作成功") -> Dict[str, Any]:
         """Execute one bridge command with a serialized device lock."""
@@ -134,11 +227,16 @@ class FingerprintService:
         """Launch the bundled ZKFP installer."""
         setup_path = _installer_path()
         if not os.path.exists(setup_path):
-            return {
-                "success": False,
-                "error": "未找到指纹安装程序",
-                "message": f"setup.exe 不存在: {setup_path}",
-            }
+            return self._failure_result(
+                "未找到指纹安装程序",
+                f"setup.exe 不存在: {setup_path}",
+                error_type="FileNotFoundError",
+                hint="请确认 setup.exe 已随程序一起发布，或检查文件是否被安全软件移除。",
+                details={
+                    "installerPath": setup_path,
+                    "elevated": elevated,
+                },
+            )
 
         try:
             if os.name == "nt" and elevated:
@@ -152,7 +250,18 @@ class FingerprintService:
                     1,
                 )
                 if result <= 32:
-                    raise RuntimeError(f"启动安装程序失败，ShellExecuteW 返回: {result}")
+                    error_details = _shell_execute_error_details(int(result))
+                    return self._failure_result(
+                        "启动指纹安装程序失败",
+                        error_details["message"],
+                        error_type=error_details["type"],
+                        hint=error_details["hint"],
+                        details={
+                            "shellExecuteCode": int(result),
+                            "installerPath": setup_path,
+                            "elevated": True,
+                        },
+                    )
                 return self._success({
                     "started": True,
                     "elevated": True,
@@ -166,6 +275,39 @@ class FingerprintService:
                 "pid": process.pid,
                 "installerPath": setup_path,
             }, "指纹安装程序已启动")
+        except FileNotFoundError:
+            return self._failure_result(
+                "启动指纹安装程序失败",
+                f"未找到 setup.exe: {setup_path}",
+                error_type="FileNotFoundError",
+                hint="请确认安装程序文件存在，且未被安全软件隔离。",
+                details={
+                    "installerPath": setup_path,
+                    "elevated": elevated,
+                },
+            )
+        except PermissionError as exc:
+            return self._failure_result(
+                "启动指纹安装程序失败",
+                f"没有权限启动 setup.exe: {exc}",
+                error_type="PermissionError",
+                hint="请尝试以管理员身份运行当前程序，或手动右键以管理员身份运行 setup.exe。",
+                details={
+                    "installerPath": setup_path,
+                    "elevated": elevated,
+                },
+            )
+        except OSError as exc:
+            return self._failure_result(
+                "启动指纹安装程序失败",
+                f"操作系统无法启动 setup.exe: {exc}",
+                error_type=exc.__class__.__name__,
+                hint="请检查 setup.exe 是否可执行，以及系统环境是否允许启动外部安装程序。",
+                details={
+                    "installerPath": setup_path,
+                    "elevated": elevated,
+                },
+            )
         except Exception as exc:
             return self._failure("启动指纹安装程序失败", exc)
 
@@ -182,18 +324,29 @@ class FingerprintService:
             }, "指纹环境可用，无需安装")
 
         if not diagnostic_result.get("installerExists"):
-            return {
-                "success": False,
-                "error": "未找到指纹安装程序",
-                "message": "指纹环境不可用，且未找到内置 setup.exe。",
-                "result": {
+            return self._failure_result(
+                "未找到指纹安装程序",
+                "指纹环境不可用，且未找到内置 setup.exe。",
+                error_type="FileNotFoundError",
+                result={
                     "ready": False,
                     "installStarted": False,
                     "diagnostics": diagnostic_result,
                 },
-            }
+                hint="请确认打包目录完整，或重新安装当前应用。",
+            )
 
         install_result = self.run_installer(elevated=elevated)
+        if not install_result.get("success"):
+            return {
+                **install_result,
+                "result": {
+                    "ready": False,
+                    "installStarted": False,
+                    "diagnostics": diagnostic_result,
+                    "installer": install_result,
+                },
+            }
         return self._success({
             "ready": False,
             "installStarted": bool(install_result.get("success")),
